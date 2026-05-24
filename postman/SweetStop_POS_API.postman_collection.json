@@ -1,0 +1,663 @@
+{
+  "info": {
+    "name": "SweetStop POS API",
+    "_postman_id": "9b8ecf3a-f2b8-4f3a-98f7-d2996a4f6f91",
+    "description": "Postman collection for SweetStop POS modular APIs (`/api/v1`).\n\nRecommended run order for first-time setup:\n1. Health Check\n2. Branches > Create Branch\n3. Access > List Roles (captures role IDs)\n4. Access > Create Account (captures account IDs)\n5. Access > Assign Branch Role\n6. Catalog > Create Product\n7. Catalog > Create Variant\n8. Catalog > Update Branch Variant Config\n9. Catalog > Update Branch Variant Inventory\n10. POS > Create Receipt\n11. Cash > Create Cash Movement\n12. Reports > Generate Daily Report\n\nThe collection uses collection variables and test scripts to auto-store generated IDs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "description": "Checks if server is up.",
+        "url": "{{baseUrl}}/health"
+      },
+      "response": []
+    },
+    {
+      "name": "Branches",
+      "description": "Branch management module. Create a branch first and capture `branchId`.",
+      "item": [
+        {
+          "name": "List Branches",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Lists all branches.",
+            "url": "{{baseUrl}}/api/v1/branches"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Branch By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Gets one branch by `branchId` variable.",
+            "url": "{{baseUrl}}/api/v1/branches/{{branchId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Branch",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "if (json && json.data && json.data.id) {",
+                  "  pm.collectionVariables.set(\"branchId\", json.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Creates a branch and stores its ID to `branchId`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"SweetStop - Manila Main\",\n  \"address\": \"123 Dessert Street, Manila\",\n  \"timezone\": \"Asia/Manila\",\n  \"status\": \"ACTIVE\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/branches"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Access",
+      "description": "User access control module. Run `List Roles` before update/assign calls to populate role ID variables.",
+      "item": [
+        {
+          "name": "List Roles",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "const rows = (json && json.data) || [];",
+                  "const byCode = {};",
+                  "rows.forEach((r) => { byCode[r.code] = r.id; });",
+                  "if (byCode.cashier !== undefined) pm.collectionVariables.set(\"cashierRoleId\", String(byCode.cashier));",
+                  "if (byCode.manager !== undefined) pm.collectionVariables.set(\"managerRoleId\", String(byCode.manager));",
+                  "if (byCode.admin !== undefined) pm.collectionVariables.set(\"adminRoleId\", String(byCode.admin));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Lists roles and captures `cashierRoleId`, `managerRoleId`, and `adminRoleId`.",
+            "url": "{{baseUrl}}/api/v1/access/roles"
+          },
+          "response": []
+        },
+        {
+          "name": "List Permissions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Lists all permission keys.",
+            "url": "{{baseUrl}}/api/v1/access/permissions"
+          },
+          "response": []
+        },
+        {
+          "name": "List Accounts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Lists accounts for all branches or for a specific branch using `branchId`.",
+            "url": "{{baseUrl}}/api/v1/access/accounts?branch_id={{branchId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Account",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "if (json && json.data && json.data.account && json.data.account.id) {",
+                  "  pm.collectionVariables.set(\"accountId\", json.data.account.id);",
+                  "  pm.collectionVariables.set(\"cashierAccountId\", json.data.account.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Creates a test cashier account and stores `accountId` and `cashierAccountId`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstname\": \"Cashier\",\n  \"lastname\": \"Tester\",\n  \"gender\": \"PREFER_NOT_TO_SAY\",\n  \"birthdate\": \"1998-01-01\",\n  \"username\": \"cashier_{{$timestamp}}\",\n  \"contact_no\": \"+639171234567\",\n  \"email_address\": \"cashier_{{$timestamp}}@sweetstop.test\",\n  \"access_code\": \"cashier\",\n  \"password\": \"{{defaultPassword}}\",\n  \"status\": \"ACTIVE\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/access/accounts"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Account Access",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Updates the global access role for `accountId` using captured `managerRoleId`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"access_id\": {{managerRoleId}}\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/access/accounts/{{accountId}}/access"
+          },
+          "response": []
+        },
+        {
+          "name": "Assign Branch Role",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Assigns a branch-specific role for `accountId` in `branchId`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branch_id\": \"{{branchId}}\",\n  \"access_id\": {{cashierRoleId}},\n  \"is_primary\": true\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/access/accounts/{{accountId}}/branch-role"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Catalog",
+      "description": "Catalog and branch customization module. Create product and variant first.",
+      "item": [
+        {
+          "name": "List Products (Global)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Lists global products and variants without branch overlay.",
+            "url": "{{baseUrl}}/api/v1/catalog/products"
+          },
+          "response": []
+        },
+        {
+          "name": "List Products (Branch View)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Lists products with branch-level config and inventory.",
+            "url": "{{baseUrl}}/api/v1/catalog/products?branch_id={{branchId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "if (json && json.data && json.data.id) {",
+                  "  pm.collectionVariables.set(\"productId\", json.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Creates a product and stores `productId`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"Ice Cream\",\n  \"name\": \"Classic Sundae\",\n  \"photo_url\": \"https://images.example.com/sundae.jpg\",\n  \"description\": \"Vanilla sundae base product.\",\n  \"is_active\": true\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/catalog/products"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Variant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "if (json && json.data && json.data.id) {",
+                  "  pm.collectionVariables.set(\"variantId\", json.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Creates a variant under `productId` and stores `variantId`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Regular Cup\",\n  \"sku\": \"SUNDAE-REG-{{$timestamp}}\",\n  \"description\": \"Regular serving size\",\n  \"tags\": {\n    \"size\": \"regular\",\n    \"temperature\": \"cold\"\n  },\n  \"is_active\": true,\n  \"default_price\": 129\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/catalog/products/{{productId}}/variants"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Branch Variant Config",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Sets branch-specific availability and pricing controls for `variantId`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 139,\n  \"is_applicable\": true,\n  \"is_hidden\": false,\n  \"manual_unavailable\": false,\n  \"unavailable_from\": null,\n  \"unavailable_to\": null,\n  \"unavailable_reason\": null\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/catalog/branches/{{branchId}}/variants/{{variantId}}/config"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Branch Variant Inventory",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Sets branch inventory for `variantId`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"on_hand_qty\": 25,\n  \"reorder_level\": 5\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/catalog/branches/{{branchId}}/variants/{{variantId}}/inventory"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "POS",
+      "description": "Receipt recording module with amount and change calculation.",
+      "item": [
+        {
+          "name": "Create Receipt",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "if (json && json.data && json.data.receipt && json.data.receipt.id) {",
+                  "  pm.collectionVariables.set(\"receiptId\", json.data.receipt.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Creates a sale receipt and stores `receiptId`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branch_id\": \"{{branchId}}\",\n  \"cashier_account_id\": \"{{cashierAccountId}}\",\n  \"discount_total\": 10,\n  \"cash_received\": 500,\n  \"items\": [\n    {\n      \"variant_id\": \"{{variantId}}\",\n      \"quantity\": 2\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/pos/receipts"
+          },
+          "response": []
+        },
+        {
+          "name": "List Receipts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Lists receipts filtered by branch and date range (`from` and `to` are ISO datetime).",
+            "url": "{{baseUrl}}/api/v1/pos/receipts?branch_id={{branchId}}&from=2026-05-24T00:00:00.000Z&to=2026-05-25T00:00:00.000Z"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Receipt By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Gets one receipt with line items using `receiptId`.",
+            "url": "{{baseUrl}}/api/v1/pos/receipts/{{receiptId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Void Receipt",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Voids `receiptId` and returns stock quantities to inventory.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"voided_by_account_id\": \"{{accountId}}\",\n  \"void_reason\": \"Customer requested cancellation\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/pos/receipts/{{receiptId}}/void"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cash",
+      "description": "Cash movement recording module (`IN` / `OUT`).",
+      "item": [
+        {
+          "name": "Create Cash Movement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "if (json && json.data && json.data.id) {",
+                  "  pm.collectionVariables.set(\"movementId\", json.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Creates a cash ledger entry and stores `movementId`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branch_id\": \"{{branchId}}\",\n  \"created_by_account_id\": \"{{accountId}}\",\n  \"movement_type\": \"IN\",\n  \"category\": \"Opening Float\",\n  \"amount\": 1000,\n  \"reference_no\": \"FLOAT-{{$timestamp}}\",\n  \"reason\": \"Initial drawer cash\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/cash/movements"
+          },
+          "response": []
+        },
+        {
+          "name": "List Cash Movements",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Lists cash movements filtered by branch and datetime range.",
+            "url": "{{baseUrl}}/api/v1/cash/movements?branch_id={{branchId}}&from=2026-05-24T00:00:00.000Z&to=2026-05-25T00:00:00.000Z"
+          },
+          "response": []
+        },
+        {
+          "name": "Void Cash Movement",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Voids a posted cash movement.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"voided_by_account_id\": \"{{accountId}}\",\n  \"void_reason\": \"Incorrect entry\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/cash/movements/{{movementId}}/void"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "description": "Daily summary report module. Supports persisted report snapshot and detail rows.",
+      "item": [
+        {
+          "name": "Generate Daily Report",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "if (json && json.data && json.data.id) {",
+                  "  pm.collectionVariables.set(\"reportId\", json.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Generates (or upserts) daily summary for `businessDate` and stores `reportId`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branch_id\": \"{{branchId}}\",\n  \"business_date\": \"{{businessDate}}\",\n  \"timezone\": \"Asia/Manila\",\n  \"generated_by_account_id\": \"{{accountId}}\",\n  \"actual_cash_end\": 3500,\n  \"pdf_url\": \"https://files.example.com/reports/{{businessDate}}-{{branchId}}.pdf\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/reports/daily/generate"
+          },
+          "response": []
+        },
+        {
+          "name": "List Daily Reports",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Lists daily reports by branch and date range.",
+            "url": "{{baseUrl}}/api/v1/reports/daily?branch_id={{branchId}}&from_date={{businessDate}}&to_date={{businessDate}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Daily Report By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Gets report header plus product/cashier breakdown rows.",
+            "url": "{{baseUrl}}/api/v1/reports/daily/{{reportId}}"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:5432",
+      "type": "string",
+      "description": "Base API URL. Change this if your server runs on a different host/port."
+    },
+    {
+      "key": "branchId",
+      "value": "",
+      "type": "string",
+      "description": "Captured from `Create Branch` response."
+    },
+    {
+      "key": "accountId",
+      "value": "",
+      "type": "string",
+      "description": "Captured from `Create Account` response."
+    },
+    {
+      "key": "cashierAccountId",
+      "value": "",
+      "type": "string",
+      "description": "Captured from `Create Account` response; used in POS requests."
+    },
+    {
+      "key": "productId",
+      "value": "",
+      "type": "string",
+      "description": "Captured from `Create Product` response."
+    },
+    {
+      "key": "variantId",
+      "value": "",
+      "type": "string",
+      "description": "Captured from `Create Variant` response."
+    },
+    {
+      "key": "receiptId",
+      "value": "",
+      "type": "string",
+      "description": "Captured from `Create Receipt` response."
+    },
+    {
+      "key": "movementId",
+      "value": "",
+      "type": "string",
+      "description": "Captured from `Create Cash Movement` response."
+    },
+    {
+      "key": "reportId",
+      "value": "",
+      "type": "string",
+      "description": "Captured from `Generate Daily Report` response."
+    },
+    {
+      "key": "cashierRoleId",
+      "value": "",
+      "type": "string",
+      "description": "Captured from `List Roles` response."
+    },
+    {
+      "key": "managerRoleId",
+      "value": "",
+      "type": "string",
+      "description": "Captured from `List Roles` response."
+    },
+    {
+      "key": "adminRoleId",
+      "value": "",
+      "type": "string",
+      "description": "Captured from `List Roles` response."
+    },
+    {
+      "key": "businessDate",
+      "value": "2026-05-24",
+      "type": "string",
+      "description": "Used in report requests (YYYY-MM-DD)."
+    },
+    {
+      "key": "defaultPassword",
+      "value": "P@ssw0rd123",
+      "type": "string",
+      "description": "Default password used by `Create Account`."
+    }
+  ]
+}
