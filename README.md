@@ -25,3 +25,8 @@ Monorepo setup for SweetStop POS with:
    ```bash
    npm run dev
    ```
+
+5. Setup database schema + seed:
+   ```bash
+   npm run db:setup
+   ```
