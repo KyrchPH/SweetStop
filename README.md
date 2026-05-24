@@ -42,3 +42,41 @@ Monorepo setup for SweetStop POS with:
    ```bash
    npm run dev
    ```
+
+## Server API Modules (`/api/v1`)
+
+1. `branches`
+- `GET /branches`
+- `GET /branches/:branchId`
+- `POST /branches`
+
+2. `catalog`
+- `GET /catalog/products`
+- `POST /catalog/products`
+- `POST /catalog/products/:productId/variants`
+- `PATCH /catalog/branches/:branchId/variants/:variantId/config`
+- `PATCH /catalog/branches/:branchId/variants/:variantId/inventory`
+
+3. `access`
+- `GET /access/roles`
+- `GET /access/permissions`
+- `GET /access/accounts`
+- `POST /access/accounts`
+- `PATCH /access/accounts/:accountId/access`
+- `PUT /access/accounts/:accountId/branch-role`
+
+4. `pos`
+- `POST /pos/receipts`
+- `GET /pos/receipts`
+- `GET /pos/receipts/:receiptId`
+- `PATCH /pos/receipts/:receiptId/void`
+
+5. `cash`
+- `POST /cash/movements`
+- `GET /cash/movements`
+- `PATCH /cash/movements/:movementId/void`
+
+6. `reports`
+- `POST /reports/daily/generate`
+- `GET /reports/daily`
+- `GET /reports/daily/:reportId`
