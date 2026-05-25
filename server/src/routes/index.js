@@ -6,6 +6,7 @@ import cashRoutes from "./cash.routes.js";
 import catalogRoutes from "./catalog.routes.js";
 import posRoutes from "./pos.routes.js";
 import reportsRoutes from "./reports.routes.js";
+import shiftsRoutes from "./shifts.routes.js";
 
 const router = Router();
 
@@ -14,6 +15,7 @@ router.use("/catalog", catalogRoutes);
 router.use("/access", accessRoutes);
 router.use("/pos", posRoutes);
 router.use("/cash", cashRoutes);
+router.use("/shifts", shiftsRoutes);
 router.use("/reports", reportsRoutes);
 
 export default router;

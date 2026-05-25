@@ -1,5 +1,7 @@
 import * as reportsService from "../services/reports.service.js";
+import { HttpError } from "../utils/http-error.js";
 import {
+  assertNonEmptyString,
   assertUuid,
   parseDateOnly,
   parseNonNegativeNumber
@@ -16,13 +18,20 @@ export async function generateDailyReport(req, res) {
   } = req.body ?? {};
 
   assertUuid(branch_id, "branch_id");
-  assertUuid(generated_by_account_id, "generated_by_account_id");
+
+  if (generated_by_account_id) {
+    assertUuid(generated_by_account_id, "generated_by_account_id");
+
+    if (generated_by_account_id !== req.auth.account_id) {
+      throw new HttpError(403, "generated_by_account_id must match authenticated account.");
+    }
+  }
 
   const data = await reportsService.generateDailyReport({
     branch_id,
     business_date: parseDateOnly(business_date, "business_date"),
     timezone,
-    generated_by_account_id,
+    generated_by_account_id: req.auth.account_id,
     actual_cash_end:
       actual_cash_end === undefined ? undefined : parseNonNegativeNumber(actual_cash_end, "actual_cash_end"),
     pdf_url
@@ -52,5 +61,19 @@ export async function getDailyReportById(req, res) {
   assertUuid(reportId, "reportId");
 
   const data = await reportsService.getDailyReportById(reportId);
+  res.status(200).json({ ok: true, data });
+}
+
+export async function updateDailyReportPdf(req, res) {
+  const { reportId } = req.params;
+  const { pdf_url } = req.body ?? {};
+
+  assertUuid(reportId, "reportId");
+  assertNonEmptyString(pdf_url, "pdf_url");
+
+  const data = await reportsService.updateDailyReportPdf(reportId, {
+    pdf_url,
+    actor_account_id: req.auth.account_id
+  });
   res.status(200).json({ ok: true, data });
 }

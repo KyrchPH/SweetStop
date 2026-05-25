@@ -1,5 +1,7 @@
 import { Router } from "express";
 
+import { authenticate } from "../middlewares/authenticate.js";
+import { authorize } from "../middlewares/authorize.js";
 import {
   createReceipt,
   getReceiptById,
@@ -10,9 +12,11 @@ import { asyncHandler } from "../utils/async-handler.js";
 
 const router = Router();
 
-router.post("/receipts", asyncHandler(createReceipt));
-router.get("/receipts", asyncHandler(listReceipts));
-router.get("/receipts/:receiptId", asyncHandler(getReceiptById));
-router.patch("/receipts/:receiptId/void", asyncHandler(voidReceipt));
+router.use(authenticate);
+
+router.post("/receipts", authorize("sale.create"), asyncHandler(createReceipt));
+router.get("/receipts", authorize(["sale.create", "report.daily.view"], { mode: "any" }), asyncHandler(listReceipts));
+router.get("/receipts/:receiptId", authorize(["receipt.reprint", "sale.create"], { mode: "any" }), asyncHandler(getReceiptById));
+router.patch("/receipts/:receiptId/void", authorize("receipt.void"), asyncHandler(voidReceipt));
 
 export default router;

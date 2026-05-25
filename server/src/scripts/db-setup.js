@@ -31,7 +31,7 @@ const sqlDirectory = path.resolve(__dirname, "../../db/sql");
 const sqlFiles = [];
 
 if (!runSeedOnly) {
-  sqlFiles.push("001_schema.sql");
+  sqlFiles.push("001_schema.sql", "003_auth_security.sql");
 }
 
 if (!runSchemaOnly) {

@@ -24,7 +24,13 @@
           "name": "List Branches",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
             "description": "Lists all branches.",
             "url": "{{baseUrl}}/api/v1/branches"
           },
@@ -34,7 +40,13 @@
           "name": "Get Branch By ID",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
             "description": "Gets one branch by `branchId` variable.",
             "url": "{{baseUrl}}/api/v1/branches/{{branchId}}"
           },
@@ -66,6 +78,11 @@
                 "key": "Content-Type",
                 "value": "application/json",
                 "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
               }
             ],
             "description": "Creates a branch and stores its ID to `branchId`.",
@@ -83,6 +100,83 @@
       "name": "Access",
       "description": "User access control module. Run `List Roles` before update/assign calls to populate role ID variables.",
       "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Authenticates user and stores `authToken` for protected endpoints.",
+            "url": "{{baseUrl}}/api/v1/access/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"admin\",\n  \"password\": \"{{defaultPassword}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "if (json && json.data && json.data.token) {",
+                  "  pm.collectionVariables.set(\"authToken\", json.data.token);",
+                  "}",
+                  "if (json && json.data && json.data.profile && json.data.profile.account_id) {",
+                  "  pm.collectionVariables.set(\"accountId\", json.data.profile.account_id);",
+                  "  pm.collectionVariables.set(\"cashierAccountId\", json.data.profile.account_id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bootstrap Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Creates the very first admin account. This only works when no accounts exist yet.",
+            "url": "{{baseUrl}}/api/v1/access/bootstrap/admin",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstname\": \"Admin\",\n  \"lastname\": \"Owner\",\n  \"gender\": \"PREFER_NOT_TO_SAY\",\n  \"birthdate\": \"1995-01-01\",\n  \"username\": \"admin\",\n  \"contact_no\": \"+639171234567\",\n  \"email_address\": \"admin@sweetstop.test\",\n  \"password\": \"{{defaultPassword}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "description": "Returns current authenticated account context.",
+            "url": "{{baseUrl}}/api/v1/access/me"
+          },
+          "response": []
+        },
         {
           "name": "List Roles",
           "event": [
@@ -107,7 +201,13 @@
           ],
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
             "description": "Lists roles and captures `cashierRoleId`, `managerRoleId`, and `adminRoleId`.",
             "url": "{{baseUrl}}/api/v1/access/roles"
           },
@@ -117,7 +217,13 @@
           "name": "List Permissions",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
             "description": "Lists all permission keys.",
             "url": "{{baseUrl}}/api/v1/access/permissions"
           },
@@ -127,7 +233,13 @@
           "name": "List Accounts",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
             "description": "Lists accounts for all branches or for a specific branch using `branchId`.",
             "url": "{{baseUrl}}/api/v1/access/accounts?branch_id={{branchId}}"
           },
@@ -160,6 +272,11 @@
                 "key": "Content-Type",
                 "value": "application/json",
                 "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
               }
             ],
             "description": "Creates a test cashier account and stores `accountId` and `cashierAccountId`.",
@@ -180,6 +297,11 @@
                 "key": "Content-Type",
                 "value": "application/json",
                 "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
               }
             ],
             "description": "Updates the global access role for `accountId` using captured `managerRoleId`.",
@@ -199,6 +321,11 @@
               {
                 "key": "Content-Type",
                 "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
                 "type": "text"
               }
             ],
@@ -221,7 +348,13 @@
           "name": "List Products (Global)",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
             "description": "Lists global products and variants without branch overlay.",
             "url": "{{baseUrl}}/api/v1/catalog/products"
           },
@@ -231,7 +364,13 @@
           "name": "List Products (Branch View)",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
             "description": "Lists products with branch-level config and inventory.",
             "url": "{{baseUrl}}/api/v1/catalog/products?branch_id={{branchId}}"
           },
@@ -262,6 +401,11 @@
               {
                 "key": "Content-Type",
                 "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
                 "type": "text"
               }
             ],
@@ -300,6 +444,11 @@
                 "key": "Content-Type",
                 "value": "application/json",
                 "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
               }
             ],
             "description": "Creates a variant under `productId` and stores `variantId`.",
@@ -320,6 +469,11 @@
                 "key": "Content-Type",
                 "value": "application/json",
                 "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
               }
             ],
             "description": "Sets branch-specific availability and pricing controls for `variantId`.",
@@ -339,6 +493,11 @@
               {
                 "key": "Content-Type",
                 "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
                 "type": "text"
               }
             ],
@@ -383,6 +542,11 @@
                 "key": "Content-Type",
                 "value": "application/json",
                 "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
               }
             ],
             "description": "Creates a sale receipt and stores `receiptId`.",
@@ -398,7 +562,13 @@
           "name": "List Receipts",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
             "description": "Lists receipts filtered by branch and date range (`from` and `to` are ISO datetime).",
             "url": "{{baseUrl}}/api/v1/pos/receipts?branch_id={{branchId}}&from=2026-05-24T00:00:00.000Z&to=2026-05-25T00:00:00.000Z"
           },
@@ -408,7 +578,13 @@
           "name": "Get Receipt By ID",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
             "description": "Gets one receipt with line items using `receiptId`.",
             "url": "{{baseUrl}}/api/v1/pos/receipts/{{receiptId}}"
           },
@@ -422,6 +598,11 @@
               {
                 "key": "Content-Type",
                 "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
                 "type": "text"
               }
             ],
@@ -466,6 +647,11 @@
                 "key": "Content-Type",
                 "value": "application/json",
                 "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
               }
             ],
             "description": "Creates a cash ledger entry and stores `movementId`.",
@@ -481,7 +667,13 @@
           "name": "List Cash Movements",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
             "description": "Lists cash movements filtered by branch and datetime range.",
             "url": "{{baseUrl}}/api/v1/cash/movements?branch_id={{branchId}}&from=2026-05-24T00:00:00.000Z&to=2026-05-25T00:00:00.000Z"
           },
@@ -495,6 +687,11 @@
               {
                 "key": "Content-Type",
                 "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
                 "type": "text"
               }
             ],
@@ -539,6 +736,11 @@
                 "key": "Content-Type",
                 "value": "application/json",
                 "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
               }
             ],
             "description": "Generates (or upserts) daily summary for `businessDate` and stores `reportId`.",
@@ -554,7 +756,13 @@
           "name": "List Daily Reports",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
             "description": "Lists daily reports by branch and date range.",
             "url": "{{baseUrl}}/api/v1/reports/daily?branch_id={{branchId}}&from_date={{businessDate}}&to_date={{businessDate}}"
           },
@@ -564,9 +772,40 @@
           "name": "Get Daily Report By ID",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
             "description": "Gets report header plus product/cashier breakdown rows.",
             "url": "{{baseUrl}}/api/v1/reports/daily/{{reportId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Attach Report PDF URL",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "description": "Attaches or updates a daily report PDF URL generated by frontend. The backend validates HTTPS, allowed host, and PDF path pattern before saving.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pdf_url\": \"https://firebasestorage.googleapis.com/v0/b/your-bucket/o/reports%2F{{businessDate}}-{{branchId}}.pdf?alt=media&token=replace-with-token\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/reports/daily/{{reportId}}/pdf"
           },
           "response": []
         }
@@ -658,6 +897,12 @@
       "value": "P@ssw0rd123",
       "type": "string",
       "description": "Default password used by `Create Account`."
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string",
+      "description": "Bearer token captured from Access > Login."
     }
   ]
 }

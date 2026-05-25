@@ -20,6 +20,8 @@ Monorepo setup for SweetStop POS with:
 12. Daily summary reporting with PDF export.
 13. Cash ledger recording (`cash in` and `cash out`).
 14. Audit logs for sensitive actions.
+15. Shift opening/closing with expected vs actual cash variance.
+16. Auth hardening (login lockout, refresh token rotation, password reset flow).
 
 ## Quick Start
 
@@ -43,6 +45,19 @@ Monorepo setup for SweetStop POS with:
    npm run dev
    ```
 
+5. Configure server auth env:
+   `AUTH_JWT_SECRET` is required for login/token verification.
+
+6. Run server tests:
+   ```bash
+   npm run test:server
+   ```
+
+7. Run server backup/recovery checks:
+   ```bash
+   npm run ops:backup-check --workspace=server
+   ```
+
 ## Server API Modules (`/api/v1`)
 
 1. `branches`
@@ -58,6 +73,13 @@ Monorepo setup for SweetStop POS with:
 - `PATCH /catalog/branches/:branchId/variants/:variantId/inventory`
 
 3. `access`
+- `POST /access/bootstrap/admin` (public; only when there are no accounts yet)
+- `POST /access/login` (public)
+- `POST /access/refresh` (public; rotates refresh token)
+- `POST /access/logout` (public; revokes refresh token)
+- `POST /access/password-reset/request` (public)
+- `POST /access/password-reset/confirm` (public)
+- `GET /access/me` (authenticated)
 - `GET /access/roles`
 - `GET /access/permissions`
 - `GET /access/accounts`
@@ -80,3 +102,10 @@ Monorepo setup for SweetStop POS with:
 - `POST /reports/daily/generate`
 - `GET /reports/daily`
 - `GET /reports/daily/:reportId`
+- `PATCH /reports/daily/:reportId/pdf`
+
+7. `shifts`
+- `GET /shifts`
+- `GET /shifts/current?branch_id=...`
+- `POST /shifts/open`
+- `POST /shifts/:shiftId/close`

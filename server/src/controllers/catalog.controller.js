@@ -31,7 +31,8 @@ export async function createProduct(req, res) {
     name: name.trim(),
     photo_url,
     description,
-    is_active
+    is_active,
+    actor_account_id: req.auth.account_id
   });
 
   res.status(201).json({ ok: true, data });
@@ -57,7 +58,8 @@ export async function createVariant(req, res) {
     description,
     tags,
     is_active,
-    default_price: defaultPrice
+    default_price: defaultPrice,
+    actor_account_id: req.auth.account_id
   });
 
   res.status(201).json({ ok: true, data });
@@ -85,7 +87,8 @@ export async function updateBranchVariantConfig(req, res) {
     manual_unavailable: parseBooleanOrUndefined(manual_unavailable, "manual_unavailable"),
     unavailable_from: unavailable_from === undefined ? undefined : parseIsoDate(unavailable_from, "unavailable_from"),
     unavailable_to: unavailable_to === undefined ? undefined : parseIsoDate(unavailable_to, "unavailable_to"),
-    unavailable_reason
+    unavailable_reason,
+    actor_account_id: req.auth.account_id
   });
 
   res.status(200).json({ ok: true, data });
@@ -100,7 +103,8 @@ export async function updateBranchVariantInventory(req, res) {
 
   const data = await catalogService.updateBranchVariantInventory(branchId, variantId, {
     on_hand_qty: parseNonNegativeNumber(on_hand_qty, "on_hand_qty"),
-    reorder_level: reorder_level === undefined ? 0 : parseNonNegativeNumber(reorder_level, "reorder_level")
+    reorder_level: reorder_level === undefined ? 0 : parseNonNegativeNumber(reorder_level, "reorder_level"),
+    actor_account_id: req.auth.account_id
   });
 
   res.status(200).json({ ok: true, data });

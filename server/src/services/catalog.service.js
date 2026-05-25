@@ -1,4 +1,5 @@
 import { HttpError } from "../utils/http-error.js";
+import { writeAuditLog } from "./audit.service.js";
 import { query, withTransaction } from "./db.service.js";
 
 function isUnavailableNow(config) {
@@ -166,7 +167,23 @@ export async function createProduct(payload) {
     ]
   );
 
-  return result.rows[0];
+  const product = result.rows[0];
+
+  if (payload.actor_account_id) {
+    await writeAuditLog({
+      account_id: payload.actor_account_id,
+      action: "PRODUCT_CREATED",
+      entity_type: "product",
+      entity_id: product.id,
+      details: {
+        category: product.category,
+        name: product.name,
+        is_active: product.is_active
+      }
+    });
+  }
+
+  return product;
 }
 
 export async function createVariant(productId, payload) {
@@ -224,6 +241,26 @@ export async function createVariant(productId, payload) {
       `,
       [variant.id]
     );
+
+    if (payload.actor_account_id) {
+      await client.query(
+        `
+        insert into public.audit_logs (
+          account_id, action, entity_type, entity_id, details
+        )
+        values ($1, 'PRODUCT_VARIANT_CREATED', 'product_variant', $2, $3::jsonb)
+        `,
+        [
+          payload.actor_account_id,
+          variant.id,
+          JSON.stringify({
+            product_id: variant.product_id,
+            name: variant.name,
+            default_price: Number(defaultPrice)
+          })
+        ]
+      );
+    }
 
     return variant;
   });
@@ -312,7 +349,34 @@ export async function updateBranchVariantConfig(branchId, variantId, payload) {
       ]
     );
 
-    return updateResult.rows[0];
+    const updated = updateResult.rows[0];
+
+    if (payload.actor_account_id) {
+      await client.query(
+        `
+        insert into public.audit_logs (
+          branch_id, account_id, action, entity_type, entity_id, details, reason
+        )
+        values ($1, $2, 'BRANCH_VARIANT_CONFIG_UPDATED', 'branch_variant_config', $3, $4::jsonb, $5)
+        `,
+        [
+          branchId,
+          payload.actor_account_id,
+          updated.id,
+          JSON.stringify({
+            price: Number(updated.price),
+            is_applicable: updated.is_applicable,
+            is_hidden: updated.is_hidden,
+            manual_unavailable: updated.manual_unavailable,
+            unavailable_from: updated.unavailable_from,
+            unavailable_to: updated.unavailable_to
+          }),
+          updated.unavailable_reason
+        ]
+      );
+    }
+
+    return updated;
   });
 }
 
@@ -333,5 +397,22 @@ export async function updateBranchVariantInventory(branchId, variantId, payload)
     [branchId, variantId, payload.on_hand_qty, payload.reorder_level]
   );
 
-  return result.rows[0];
+  const inventory = result.rows[0];
+
+  if (payload.actor_account_id) {
+    await writeAuditLog({
+      branch_id: branchId,
+      account_id: payload.actor_account_id,
+      action: "BRANCH_VARIANT_INVENTORY_UPDATED",
+      entity_type: "branch_variant_inventory",
+      entity_id: inventory.id,
+      details: {
+        variant_id: inventory.variant_id,
+        on_hand_qty: Number(inventory.on_hand_qty),
+        reorder_level: Number(inventory.reorder_level)
+      }
+    });
+  }
+
+  return inventory;
 }

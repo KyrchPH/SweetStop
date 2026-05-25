@@ -1,5 +1,6 @@
 import { HttpError } from "../utils/http-error.js";
 import { hashPassword } from "../utils/password.js";
+import { writeAuditLog } from "./audit.service.js";
 import { query, withTransaction } from "./db.service.js";
 
 async function resolveAccessId(client, accessId, accessCode) {
@@ -163,6 +164,26 @@ export async function createAccount(payload) {
       ]
     );
 
+    if (payload.actor_account_id) {
+      await client.query(
+        `
+        insert into public.audit_logs (
+          account_id, action, entity_type, entity_id, details
+        )
+        values ($1, 'ACCOUNT_CREATED', 'account', $2, $3::jsonb)
+        `,
+        [
+          payload.actor_account_id,
+          accountResult.rows[0].id,
+          JSON.stringify({
+            username: accountResult.rows[0].username,
+            access_id: accountResult.rows[0].access_id,
+            status: accountResult.rows[0].status
+          })
+        ]
+      );
+    }
+
     return {
       user: userResult.rows[0],
       account: accountResult.rows[0]
@@ -185,7 +206,22 @@ export async function updateAccountAccess(accountId, payload) {
     throw new HttpError(404, "Account not found.");
   }
 
-  return result.rows[0];
+  const account = result.rows[0];
+
+  if (payload.actor_account_id) {
+    await writeAuditLog({
+      account_id: payload.actor_account_id,
+      action: "ACCOUNT_ACCESS_UPDATED",
+      entity_type: "account",
+      entity_id: account.id,
+      details: {
+        access_id: account.access_id,
+        username: account.username
+      }
+    });
+  }
+
+  return account;
 }
 
 export async function upsertBranchRole(accountId, payload) {
@@ -204,5 +240,59 @@ export async function upsertBranchRole(accountId, payload) {
     [accountId, payload.branch_id, payload.access_id, payload.is_primary ?? false]
   );
 
-  return result.rows[0];
+  const mapping = result.rows[0];
+
+  if (payload.actor_account_id) {
+    await writeAuditLog({
+      branch_id: mapping.branch_id,
+      account_id: payload.actor_account_id,
+      action: "ACCOUNT_BRANCH_ROLE_UPSERTED",
+      entity_type: "account_branch_role",
+      entity_id: mapping.id,
+      details: {
+        account_id: mapping.account_id,
+        access_id: mapping.access_id,
+        is_primary: mapping.is_primary
+      }
+    });
+  }
+
+  return mapping;
+}
+
+export async function countAccounts() {
+  const result = await query(
+    `
+    select count(*)::int as total
+    from public.accounts
+    `
+  );
+
+  return result.rows[0].total;
+}
+
+export async function createBootstrapAdmin(payload) {
+  const totalAccounts = await countAccounts();
+
+  if (totalAccounts > 0) {
+    throw new HttpError(409, "Bootstrap admin can only be created when no accounts exist.");
+  }
+
+  const created = await createAccount({
+    ...payload,
+    access_code: "admin",
+    status: "ACTIVE"
+  });
+
+  await writeAuditLog({
+    action: "BOOTSTRAP_ADMIN_CREATED",
+    entity_type: "account",
+    entity_id: created.account.id,
+    details: {
+      username: created.account.username,
+      access_id: created.account.access_id
+    }
+  });
+
+  return created;
 }

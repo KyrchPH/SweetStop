@@ -1,4 +1,5 @@
 import * as cashService from "../services/cash.service.js";
+import { requirePermission } from "../middlewares/authorize.js";
 import { HttpError } from "../utils/http-error.js";
 import {
   assertNonEmptyString,
@@ -20,7 +21,9 @@ export async function createCashMovement(req, res) {
   } = req.body ?? {};
 
   assertUuid(branch_id, "branch_id");
-  assertUuid(created_by_account_id, "created_by_account_id");
+  if (created_by_account_id) {
+    assertUuid(created_by_account_id, "created_by_account_id");
+  }
   assertNonEmptyString(movement_type, "movement_type");
   assertNonEmptyString(category, "category");
 
@@ -34,10 +37,22 @@ export async function createCashMovement(req, res) {
     throw new HttpError(400, "movement_type must be either IN or OUT.");
   }
 
+  if (normalizedMovementType === "IN") {
+    requirePermission(req, "cash.in.create");
+  }
+
+  if (normalizedMovementType === "OUT") {
+    requirePermission(req, "cash.out.create");
+  }
+
+  if (created_by_account_id && created_by_account_id !== req.auth.account_id) {
+    throw new HttpError(403, "created_by_account_id must match authenticated account.");
+  }
+
   const data = await cashService.createCashMovement({
     branch_id,
     shift_id,
-    created_by_account_id,
+    created_by_account_id: req.auth.account_id,
     movement_type: normalizedMovementType,
     category: category.trim(),
     amount: parsePositiveNumber(amount, "amount"),
@@ -66,13 +81,12 @@ export async function listCashMovements(req, res) {
 
 export async function voidCashMovement(req, res) {
   const { movementId } = req.params;
-  const { voided_by_account_id, void_reason } = req.body ?? {};
+  const { void_reason } = req.body ?? {};
 
   assertUuid(movementId, "movementId");
-  assertUuid(voided_by_account_id, "voided_by_account_id");
 
   const data = await cashService.voidCashMovement(movementId, {
-    voided_by_account_id,
+    voided_by_account_id: req.auth.account_id,
     void_reason
   });
 

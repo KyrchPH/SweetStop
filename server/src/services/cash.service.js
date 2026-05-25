@@ -1,4 +1,5 @@
 import { HttpError } from "../utils/http-error.js";
+import { writeAuditLog } from "./audit.service.js";
 import { query } from "./db.service.js";
 
 export async function createCashMovement(payload) {
@@ -30,7 +31,24 @@ export async function createCashMovement(payload) {
     ]
   );
 
-  return result.rows[0];
+  const movement = result.rows[0];
+
+  await writeAuditLog({
+    branch_id: movement.branch_id,
+    account_id: payload.created_by_account_id,
+    action: "CASH_MOVEMENT_CREATED",
+    entity_type: "cash_movement",
+    entity_id: movement.id,
+    details: {
+      movement_type: movement.movement_type,
+      category: movement.category,
+      amount: Number(movement.amount),
+      shift_id: movement.shift_id
+    },
+    reason: payload.reason ?? null
+  });
+
+  return movement;
 }
 
 export async function listCashMovements(filters) {
@@ -87,5 +105,21 @@ export async function voidCashMovement(movementId, payload) {
     throw new HttpError(404, "Cash movement not found or already voided.");
   }
 
-  return result.rows[0];
+  const movement = result.rows[0];
+
+  await writeAuditLog({
+    branch_id: movement.branch_id,
+    account_id: payload.voided_by_account_id,
+    action: "CASH_MOVEMENT_VOIDED",
+    entity_type: "cash_movement",
+    entity_id: movement.id,
+    details: {
+      movement_type: movement.movement_type,
+      category: movement.category,
+      amount: Number(movement.amount)
+    },
+    reason: payload.void_reason ?? null
+  });
+
+  return movement;
 }

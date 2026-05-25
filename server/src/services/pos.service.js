@@ -401,6 +401,33 @@ export async function voidReceipt(receiptId, payload) {
       [receiptId]
     );
 
-    return updatedResult.rows[0];
+    const updatedReceipt = updatedResult.rows[0];
+
+    await client.query(
+      `
+      insert into public.audit_logs (
+        branch_id,
+        account_id,
+        action,
+        entity_type,
+        entity_id,
+        details,
+        reason
+      )
+      values ($1, $2, 'RECEIPT_VOIDED', 'sales_receipt', $3, $4::jsonb, $5)
+      `,
+      [
+        updatedReceipt.branch_id,
+        payload.voided_by_account_id,
+        updatedReceipt.id,
+        JSON.stringify({
+          receipt_no: updatedReceipt.receipt_no,
+          total_amount: Number(updatedReceipt.total_amount)
+        }),
+        payload.void_reason ?? null
+      ]
+    );
+
+    return updatedReceipt;
   });
 }

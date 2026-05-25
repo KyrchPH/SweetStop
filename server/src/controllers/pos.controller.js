@@ -1,4 +1,5 @@
 import * as posService from "../services/pos.service.js";
+import { HttpError } from "../utils/http-error.js";
 import {
   assertUuid,
   parseIsoDate,
@@ -16,16 +17,25 @@ export async function createReceipt(req, res) {
   } = req.body ?? {};
 
   assertUuid(branch_id, "branch_id");
-  assertUuid(cashier_account_id, "cashier_account_id");
+
+  if (cashier_account_id) {
+    assertUuid(cashier_account_id, "cashier_account_id");
+  }
 
   if (shift_id) {
     assertUuid(shift_id, "shift_id");
   }
 
+  const cashierAccountId = cashier_account_id ?? req.auth.account_id;
+
+  if (cashier_account_id && cashier_account_id !== req.auth.account_id) {
+    throw new HttpError(403, "cashier_account_id must match authenticated account.");
+  }
+
   const data = await posService.createReceipt({
     branch_id,
     shift_id,
-    cashier_account_id,
+    cashier_account_id: cashierAccountId,
     discount_total: discount_total === undefined ? 0 : parseNonNegativeNumber(discount_total, "discount_total"),
     cash_received: parseNonNegativeNumber(cash_received, "cash_received"),
     items
@@ -60,13 +70,12 @@ export async function getReceiptById(req, res) {
 
 export async function voidReceipt(req, res) {
   const { receiptId } = req.params;
-  const { voided_by_account_id, void_reason } = req.body ?? {};
+  const { void_reason } = req.body ?? {};
 
   assertUuid(receiptId, "receiptId");
-  assertUuid(voided_by_account_id, "voided_by_account_id");
 
   const data = await posService.voidReceipt(receiptId, {
-    voided_by_account_id,
+    voided_by_account_id: req.auth.account_id,
     void_reason
   });
 

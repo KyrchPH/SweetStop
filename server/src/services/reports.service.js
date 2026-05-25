@@ -1,5 +1,81 @@
 import { HttpError } from "../utils/http-error.js";
+import { writeAuditLog } from "./audit.service.js";
 import { query, withTransaction } from "./db.service.js";
+
+const DEFAULT_REPORT_PDF_ALLOWED_HOSTS = [
+  "firebasestorage.googleapis.com",
+  "storage.googleapis.com"
+];
+
+function getAllowedReportPdfHosts() {
+  const fromEnv = process.env.REPORT_PDF_ALLOWED_HOSTS;
+
+  if (!fromEnv || fromEnv.trim() === "") {
+    return DEFAULT_REPORT_PDF_ALLOWED_HOSTS;
+  }
+
+  const hosts = fromEnv
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter((value) => value !== "");
+
+  return hosts.length > 0 ? hosts : DEFAULT_REPORT_PDF_ALLOWED_HOSTS;
+}
+
+function validateAndNormalizeReportPdfUrl(pdfUrl) {
+  if (typeof pdfUrl !== "string" || pdfUrl.trim() === "") {
+    throw new HttpError(400, "pdf_url is required.");
+  }
+
+  let parsed;
+
+  try {
+    parsed = new URL(pdfUrl.trim());
+  } catch {
+    throw new HttpError(400, "pdf_url must be a valid URL.");
+  }
+
+  if (parsed.protocol !== "https:") {
+    throw new HttpError(400, "pdf_url must use HTTPS.");
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  const allowedHosts = getAllowedReportPdfHosts();
+  const hostAllowed = allowedHosts.some(
+    (allowedHost) => host === allowedHost || host.endsWith(`.${allowedHost}`)
+  );
+
+  if (!hostAllowed) {
+    throw new HttpError(
+      400,
+      `pdf_url host is not allowed. Allowed hosts: ${allowedHosts.join(", ")}`
+    );
+  }
+
+  const decodedPath = decodeURIComponent(parsed.pathname || "");
+  const pathPattern =
+    process.env.REPORT_PDF_PATH_REGEX || "^/.*/reports/.+\\.pdf$";
+  let pathRegex;
+
+  try {
+    pathRegex = new RegExp(pathPattern, "i");
+  } catch {
+    throw new HttpError(500, "REPORT_PDF_PATH_REGEX is invalid.");
+  }
+
+  if (!pathRegex.test(decodedPath)) {
+    throw new HttpError(
+      400,
+      "pdf_url path does not match allowed report PDF path pattern."
+    );
+  }
+
+  if (!decodedPath.toLowerCase().endsWith(".pdf")) {
+    throw new HttpError(400, "pdf_url must point to a .pdf file.");
+  }
+
+  return parsed.toString();
+}
 
 async function resolveBranchTimezone(client, branchId, fallbackTimezone) {
   if (fallbackTimezone) {
@@ -262,6 +338,32 @@ export async function generateDailyReport(payload) {
       [report.id, payload.branch_id, periodStartAt, periodEndAt]
     );
 
+    await client.query(
+      `
+      insert into public.audit_logs (
+        branch_id,
+        account_id,
+        action,
+        entity_type,
+        entity_id,
+        details
+      )
+      values ($1, $2, 'DAILY_REPORT_GENERATED', 'daily_report', $3, $4::jsonb)
+      `,
+      [
+        report.branch_id,
+        payload.generated_by_account_id,
+        report.id,
+        JSON.stringify({
+          business_date: report.business_date,
+          net_sales: Number(report.net_sales),
+          expected_cash_end: Number(report.expected_cash_end),
+          actual_cash_end:
+            report.actual_cash_end === null ? null : Number(report.actual_cash_end)
+        })
+      ]
+    );
+
     return report;
   });
 }
@@ -339,4 +441,42 @@ export async function getDailyReportById(reportId) {
     product_sales: productSalesResult.rows,
     cashier_sales: cashierSalesResult.rows
   };
+}
+
+export async function updateDailyReportPdf(reportId, payload) {
+  const normalizedPdfUrl = validateAndNormalizeReportPdfUrl(payload.pdf_url);
+
+  const result = await query(
+    `
+    update public.daily_reports
+    set
+      pdf_url = $2,
+      status = case when status = 'FAILED' then 'READY' else status end,
+      error_message = null,
+      updated_at = now()
+    where id = $1
+    returning *
+    `,
+    [reportId, normalizedPdfUrl]
+  );
+
+  if (result.rows.length === 0) {
+    throw new HttpError(404, "Daily report not found.");
+  }
+
+  const report = result.rows[0];
+
+  await writeAuditLog({
+    branch_id: report.branch_id,
+    account_id: payload.actor_account_id ?? null,
+    action: "DAILY_REPORT_PDF_UPDATED",
+    entity_type: "daily_report",
+    entity_id: report.id,
+    details: {
+      business_date: report.business_date,
+      pdf_url: report.pdf_url
+    }
+  });
+
+  return report;
 }

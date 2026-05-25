@@ -5,6 +5,8 @@ dist/
 .env.development
 .env.production
 .env.example
+!client/.env.example
+!server/.env.example
 fb-service-account.json
 AGENT.md
 .DS_Store

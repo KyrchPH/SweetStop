@@ -10,6 +10,7 @@
     "install:all": "npm install",
     "build": "npm run build --workspace=client",
     "start": "npm run start --workspace=server",
+    "test:server": "npm run test --workspace=server",
     "db:setup": "npm run db:setup --workspace=server",
     "db:schema": "npm run db:schema --workspace=server",
     "db:seed": "npm run db:seed --workspace=server"
