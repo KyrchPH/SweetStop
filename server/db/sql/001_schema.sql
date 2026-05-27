@@ -75,6 +75,27 @@ create table if not exists public.branches (
   check (status in ('ACTIVE', 'INACTIVE'))
 );
 
+create table if not exists public.promotions (
+  id uuid primary key default gen_random_uuid(),
+  branch_id uuid not null references public.branches(id) on delete cascade,
+  name text not null,
+  code text,
+  description text,
+  discount_type text not null,
+  discount_value numeric(12, 2) not null check (discount_value > 0),
+  min_subtotal numeric(12, 2) not null default 0 check (min_subtotal >= 0),
+  starts_at timestamptz,
+  ends_at timestamptz,
+  status text not null default 'ACTIVE',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (branch_id, code),
+  check (discount_type in ('PERCENT', 'FIXED')),
+  check (discount_type <> 'PERCENT' or discount_value <= 100),
+  check (status in ('ACTIVE', 'INACTIVE')),
+  check (ends_at is null or starts_at is null or ends_at > starts_at)
+);
+
 create table if not exists public.account_branch_roles (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts(id) on delete cascade,
@@ -188,8 +209,10 @@ create table if not exists public.sales_receipts (
   shift_id uuid references public.shifts(id) on delete set null,
   receipt_no text not null,
   cashier_account_id uuid not null references public.accounts(id) on delete restrict,
+  promotion_id uuid references public.promotions(id) on delete set null,
   subtotal numeric(12, 2) not null check (subtotal >= 0),
   discount_total numeric(12, 2) not null default 0 check (discount_total >= 0),
+  discount_label text,
   total_amount numeric(12, 2) not null check (total_amount >= 0),
   cash_received numeric(12, 2) not null check (cash_received >= 0),
   change_amount numeric(12, 2) not null default 0 check (change_amount >= 0),
@@ -212,6 +235,10 @@ create table if not exists public.sales_receipts (
     (status = 'VOIDED' and voided_at is not null and voided_by_account_id is not null)
   )
 );
+
+alter table public.sales_receipts
+  add column if not exists promotion_id uuid references public.promotions(id) on delete set null,
+  add column if not exists discount_label text;
 
 create table if not exists public.sales_receipt_items (
   id uuid primary key default gen_random_uuid(),
@@ -315,6 +342,7 @@ create table if not exists public.audit_logs (
 
 create index if not exists idx_accounts_access_id on public.accounts(access_id);
 create index if not exists idx_account_branch_roles_branch_id on public.account_branch_roles(branch_id);
+create index if not exists idx_promotions_branch_status on public.promotions(branch_id, status);
 create index if not exists idx_products_category on public.products(category);
 create index if not exists idx_product_variants_product_id on public.product_variants(product_id);
 create index if not exists idx_branch_variant_config_branch_id on public.branch_variant_config(branch_id);
@@ -354,6 +382,11 @@ for each row execute function public.set_updated_at();
 drop trigger if exists trg_branches_updated_at on public.branches;
 create trigger trg_branches_updated_at
 before update on public.branches
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_promotions_updated_at on public.promotions;
+create trigger trg_promotions_updated_at
+before update on public.promotions
 for each row execute function public.set_updated_at();
 
 drop trigger if exists trg_account_branch_roles_updated_at on public.account_branch_roles;

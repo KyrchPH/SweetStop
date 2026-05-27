@@ -55,6 +55,20 @@ export const posApi = {
   }
 };
 
+export const promotionsApi = {
+  list(filters) {
+    return apiClient.get("/promotions", {
+      query: filters
+    });
+  },
+  create(payload) {
+    return apiClient.post("/promotions", payload);
+  },
+  update(promotionId, payload) {
+    return apiClient.patch(`/promotions/${promotionId}`, payload);
+  }
+};
+
 export const cashApi = {
   listMovements(filters) {
     return apiClient.get("/cash/movements", {

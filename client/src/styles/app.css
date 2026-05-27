@@ -419,7 +419,10 @@ select:disabled {
 }
 
 .dashboard-grid .summary-strip,
-.toolbar-band {
+.toolbar-band,
+.admin-hero,
+.admin-tab-grid,
+.admin-tab-content {
   grid-column: 1 / -1;
 }
 
@@ -483,6 +486,82 @@ select:disabled {
 .feature-panel,
 .checkout-panel {
   padding: 20px;
+}
+
+.admin-hero {
+  min-height: 190px;
+  padding: 26px;
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, rgba(255, 95, 109, 0.86), rgba(244, 207, 77, 0.72)),
+    var(--surface-warm);
+  color: #35171b;
+}
+
+.admin-hero h2 {
+  max-width: 720px;
+  margin: 10px 0;
+  font-size: clamp(2rem, 4vw, 3.6rem);
+  line-height: 0.95;
+}
+
+.admin-hero p {
+  max-width: 680px;
+  margin: 0;
+  color: rgba(53, 23, 27, 0.72);
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.admin-tab-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-tab-card {
+  display: grid;
+  gap: 10px;
+  min-height: 148px;
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--muted-strong);
+  text-align: left;
+}
+
+.admin-tab-card svg {
+  color: var(--coral-deep);
+}
+
+.admin-tab-card strong {
+  color: var(--ink);
+  line-height: 1.15;
+}
+
+.admin-tab-card span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.admin-tab-card.is-active {
+  background: var(--ink);
+  color: #ffffff;
+}
+
+.admin-tab-card.is-active svg,
+.admin-tab-card.is-active strong {
+  color: #ffffff;
+}
+
+.admin-tab-card.is-active span {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.admin-tab-content > .page-grid {
+  margin-top: 0;
 }
 
 .shift-panel,
@@ -1008,6 +1087,42 @@ select:disabled {
   font-size: 1.35rem;
 }
 
+.promotion-picker {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+
+.promotion-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--muted-strong);
+  text-align: left;
+}
+
+.promotion-option.is-active {
+  background: var(--ink);
+  color: #ffffff;
+}
+
+.promotion-option span {
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+
+.promotion-option strong {
+  white-space: nowrap;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1184,6 +1299,10 @@ select:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .admin-tab-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .register-layout {
     grid-template-columns: 1fr;
   }
@@ -1240,6 +1359,7 @@ select:disabled {
 
   .summary-strip,
   .menu-grid,
+  .admin-tab-grid,
   .register-toolbar,
   .form-grid {
     grid-template-columns: 1fr;

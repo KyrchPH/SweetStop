@@ -5,6 +5,7 @@ export {
   cashApi,
   catalogApi,
   posApi,
+  promotionsApi,
   reportsApi,
   shiftsApi
 } from "./resources";

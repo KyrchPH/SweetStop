@@ -48,7 +48,10 @@ function ReceiptPreview({ receiptDetails, onClose }) {
             <span>Subtotal</span>
             <strong>{formatMoney(receipt.subtotal)}</strong>
             <span>Discount</span>
-            <strong>{formatMoney(receipt.discount_total)}</strong>
+            <strong>
+              {receipt.discount_label ? `${receipt.discount_label} ` : ""}
+              {formatMoney(receipt.discount_total)}
+            </strong>
             <span>Total</span>
             <strong>{formatMoney(receipt.total_amount)}</strong>
             <span>Cash</span>

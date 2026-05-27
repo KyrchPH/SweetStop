@@ -1,8 +1,6 @@
 import {
   BadgeDollarSign,
   BarChart3,
-  Building2,
-  Boxes,
   Calculator,
   FileText,
   LogOut,
@@ -15,10 +13,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import { SkeletonBlock } from "./components/SkeletonLoader";
 import { useAuth } from "./context/AuthContext";
-import AccessPage from "./pages/AccessPage";
-import BranchesPage from "./pages/BranchesPage";
+import AdminPage from "./pages/AdminPage";
 import CashLedgerPage from "./pages/CashLedgerPage";
-import CatalogPage from "./pages/CatalogPage";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -33,18 +29,28 @@ const PAGES = [
     component: DashboardPage
   },
   {
-    id: "catalog",
-    label: "Catalog",
-    eyebrow: "Products",
-    icon: Boxes,
-    component: CatalogPage
-  },
-  {
     id: "register",
-    label: "Register",
-    eyebrow: "Orders",
+    label: "POS",
+    eyebrow: "Checkout",
     icon: Calculator,
     component: RegisterPage
+  },
+  {
+    id: "admin",
+    label: "Admin",
+    eyebrow: "Management",
+    icon: ShieldCheck,
+    component: AdminPage,
+    permission: [
+      "account.manage",
+      "product.create",
+      "product.update",
+      "product.branch_availability.update",
+      "inventory.adjust",
+      "promotion.manage",
+      "report.daily.view",
+      "report.daily.generate"
+    ]
   },
   {
     id: "cash",
@@ -59,22 +65,6 @@ const PAGES = [
     eyebrow: "Summary",
     icon: FileText,
     component: ReportsPage
-  },
-  {
-    id: "access",
-    label: "Access",
-    eyebrow: "Team",
-    icon: ShieldCheck,
-    component: AccessPage,
-    permission: "account.manage"
-  },
-  {
-    id: "branches",
-    label: "Branches",
-    eyebrow: "Locations",
-    icon: Building2,
-    component: BranchesPage,
-    permission: "account.manage"
   }
 ];
 
@@ -219,7 +209,7 @@ function App() {
         </header>
 
         <main className="page-content">
-          {activeBranch || activePageId === "access" || activePageId === "branches" ? (
+          {activeBranch || activePageId === "admin" ? (
             <ActivePage />
           ) : (
             <section className="feature-panel">

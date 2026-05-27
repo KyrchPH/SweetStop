@@ -11,6 +11,7 @@ export async function createReceipt(req, res) {
     branch_id,
     shift_id,
     cashier_account_id,
+    promotion_id,
     discount_total,
     cash_received,
     items
@@ -26,6 +27,10 @@ export async function createReceipt(req, res) {
     assertUuid(shift_id, "shift_id");
   }
 
+  if (promotion_id) {
+    assertUuid(promotion_id, "promotion_id");
+  }
+
   const cashierAccountId = cashier_account_id ?? req.auth.account_id;
 
   if (cashier_account_id && cashier_account_id !== req.auth.account_id) {
@@ -36,7 +41,11 @@ export async function createReceipt(req, res) {
     branch_id,
     shift_id,
     cashier_account_id: cashierAccountId,
-    discount_total: discount_total === undefined ? 0 : parseNonNegativeNumber(discount_total, "discount_total"),
+    promotion_id,
+    discount_total:
+      discount_total === undefined
+        ? undefined
+        : parseNonNegativeNumber(discount_total, "discount_total"),
     cash_received: parseNonNegativeNumber(cash_received, "cash_received"),
     items
   });

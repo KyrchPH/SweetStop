@@ -1,5 +1,6 @@
 import { HttpError } from "../utils/http-error.js";
 import { query, withTransaction } from "./db.service.js";
+import { resolveReceiptPromotion } from "./promotions.service.js";
 
 function isUnavailable(configRow) {
   if (!configRow.manual_unavailable) {
@@ -55,10 +56,10 @@ function makeReceiptNumber() {
 export async function createReceipt(payload) {
   const items = normalizeReceiptItems(payload.items);
   const variantIds = [...new Set(items.map((item) => item.variant_id))];
-  const discountTotal = Number(payload.discount_total ?? 0);
+  const requestedDiscountTotal = Number(payload.discount_total ?? 0);
   const cashReceived = Number(payload.cash_received);
 
-  if (!Number.isFinite(discountTotal) || discountTotal < 0) {
+  if (!Number.isFinite(requestedDiscountTotal) || requestedDiscountTotal < 0) {
     throw new HttpError(400, "discount_total must be a non-negative number.");
   }
 
@@ -132,6 +133,16 @@ export async function createReceipt(payload) {
       });
     }
 
+    const resolvedPromotion = await resolveReceiptPromotion(client, {
+      promotion_id: payload.promotion_id,
+      branch_id: payload.branch_id,
+      subtotal
+    });
+    const discountTotal = resolvedPromotion
+      ? resolvedPromotion.discount_total
+      : requestedDiscountTotal;
+    const discountLabel = resolvedPromotion?.discount_label ?? null;
+
     if (discountTotal > subtotal) {
       throw new HttpError(400, "discount_total cannot exceed subtotal.");
     }
@@ -152,14 +163,16 @@ export async function createReceipt(payload) {
         shift_id,
         receipt_no,
         cashier_account_id,
+        promotion_id,
         subtotal,
         discount_total,
+        discount_label,
         total_amount,
         cash_received,
         change_amount,
         status
       )
-      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'COMPLETED')
+      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'COMPLETED')
       returning *
       `,
       [
@@ -167,8 +180,10 @@ export async function createReceipt(payload) {
         payload.shift_id ?? null,
         receiptNo,
         payload.cashier_account_id,
+        resolvedPromotion?.promotion.id ?? null,
         subtotal,
         discountTotal,
+        discountLabel,
         totalAmount,
         cashReceived,
         changeAmount

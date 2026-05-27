@@ -1,4 +1,4 @@
-import { Minus, Plus, ReceiptText, Search, Trash2 } from "lucide-react";
+import { BadgePercent, Minus, Plus, ReceiptText, Search, Trash2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 import ErrorDialog from "../components/ErrorDialog";
@@ -6,7 +6,7 @@ import ReceiptPreview from "../components/ReceiptPreview";
 import { RegisterSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { useApiResource } from "../hooks/useApiResource";
-import { catalogApi, posApi, shiftsApi } from "../services/api";
+import { catalogApi, posApi, promotionsApi, shiftsApi } from "../services/api";
 import { getErrorMessage } from "../utils/errors";
 import { flattenBranchProducts, formatMoney, formatQuantity } from "../utils/formatters";
 
@@ -15,6 +15,7 @@ function RegisterPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [category, setCategory] = useState("All");
   const [cart, setCart] = useState([]);
+  const [selectedPromotionId, setSelectedPromotionId] = useState("");
   const [cashReceived, setCashReceived] = useState("");
   const [message, setMessage] = useState("");
   const [actionError, setActionError] = useState("");
@@ -22,16 +23,17 @@ function RegisterPage() {
 
   const loadRegisterData = useCallback(async () => {
     if (!activeBranchId) {
-      return { products: [], shift: null, receipts: [] };
+      return { products: [], shift: null, receipts: [], promotions: [] };
     }
 
-    const [products, shift, receipts] = await Promise.all([
+    const [products, shift, receipts, promotions] = await Promise.all([
       catalogApi.listProducts(activeBranchId),
       shiftsApi.current(activeBranchId),
-      posApi.listReceipts({ branch_id: activeBranchId })
+      posApi.listReceipts({ branch_id: activeBranchId }),
+      promotionsApi.list({ branch_id: activeBranchId, current_only: true })
     ]);
 
-    return { products, shift, receipts };
+    return { products, shift, receipts, promotions };
   }, [activeBranchId]);
 
   const { data, isLoading, error, setError, reload } = useApiResource(loadRegisterData, [loadRegisterData]);
@@ -44,9 +46,18 @@ function RegisterPage() {
     const text = `${variant.product_name} ${variant.variant_name} ${variant.sku ?? ""}`.toLowerCase();
     return matchesCategory && text.includes(searchTerm.toLowerCase());
   });
+  const activePromotions = data?.promotions ?? [];
   const subtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
+  const selectedPromotion =
+    activePromotions.find((promotion) => promotion.id === selectedPromotionId) ?? null;
+  const promotionMeetsMinimum =
+    !selectedPromotion || subtotal >= Number(selectedPromotion.min_subtotal ?? 0);
+  const discount = promotionMeetsMinimum && selectedPromotion
+    ? calculatePromotionDiscount(selectedPromotion, subtotal)
+    : 0;
+  const total = Math.max(0, subtotal - discount);
   const cash = Number(cashReceived || 0);
-  const change = Math.max(0, cash - subtotal);
+  const change = Math.max(0, cash - total);
 
   if (isLoading) {
     return <RegisterSkeleton />;
@@ -91,11 +102,17 @@ function RegisterPage() {
       return;
     }
 
+    if (!promotionMeetsMinimum) {
+      setActionError("The selected promotion minimum subtotal has not been reached.");
+      return;
+    }
+
     try {
       const receipt = await posApi.createReceipt({
         branch_id: activeBranchId,
         shift_id: data?.shift?.id ?? undefined,
-        discount_total: 0,
+        promotion_id: selectedPromotionId || undefined,
+        discount_total: selectedPromotionId ? undefined : 0,
         cash_received: cash,
         items: cart.map((item) => ({
           variant_id: item.variant_id,
@@ -104,6 +121,7 @@ function RegisterPage() {
       });
 
       setCart([]);
+      setSelectedPromotionId("");
       setCashReceived("");
       setMessage(`Receipt issued: ${receipt.receipt.receipt_no}`);
       setReceiptPreview(receipt);
@@ -207,10 +225,65 @@ function RegisterPage() {
           {cart.length === 0 ? <p className="empty-state">No items in the receipt.</p> : null}
         </div>
 
+        <div className="promotion-picker">
+          <div className="panel-title-row">
+            <div>
+              <span className="section-kicker">Discounts</span>
+              <strong>Promotions</strong>
+            </div>
+            <BadgePercent size={20} />
+          </div>
+          <button
+            className={`promotion-option ${selectedPromotionId === "" ? "is-active" : ""}`}
+            onClick={() => setSelectedPromotionId("")}
+            type="button"
+          >
+            <span>No discount</span>
+            <strong>{formatMoney(0)}</strong>
+          </button>
+          {activePromotions.map((promotion) => {
+            const meetsMinimum = subtotal >= Number(promotion.min_subtotal ?? 0);
+            const previewDiscount = meetsMinimum
+              ? calculatePromotionDiscount(promotion, subtotal)
+              : 0;
+
+            return (
+              <button
+                className={`promotion-option ${selectedPromotionId === promotion.id ? "is-active" : ""}`}
+                disabled={!meetsMinimum}
+                key={promotion.id}
+                onClick={() => setSelectedPromotionId(promotion.id)}
+                type="button"
+              >
+                <span>
+                  {promotion.name}
+                  {promotion.code ? ` / ${promotion.code}` : ""}
+                </span>
+                <strong>
+                  {meetsMinimum
+                    ? `-${formatMoney(previewDiscount)}`
+                    : `Min. ${formatMoney(promotion.min_subtotal)}`}
+                </strong>
+              </button>
+            );
+          })}
+          {activePromotions.length === 0 ? (
+            <p className="empty-state">No active promotions for this branch.</p>
+          ) : null}
+        </div>
+
         <div className="payment-box">
           <div>
             <span>Subtotal</span>
             <strong>{formatMoney(subtotal)}</strong>
+          </div>
+          <div>
+            <span>Discount</span>
+            <strong>-{formatMoney(discount)}</strong>
+          </div>
+          <div>
+            <span>Total</span>
+            <strong>{formatMoney(total)}</strong>
           </div>
           <div>
             <span>Cash received</span>
@@ -248,6 +321,16 @@ function RegisterPage() {
       <ReceiptPreview receiptDetails={receiptPreview} onClose={() => setReceiptPreview(null)} />
     </section>
   );
+}
+
+function calculatePromotionDiscount(promotion, subtotal) {
+  const discountValue = Number(promotion.discount_value ?? 0);
+
+  if (promotion.discount_type === "PERCENT") {
+    return Math.min(subtotal, Math.round((subtotal * (discountValue / 100) + Number.EPSILON) * 100) / 100);
+  }
+
+  return Math.min(subtotal, Math.round((discountValue + Number.EPSILON) * 100) / 100);
 }
 
 export default RegisterPage;
