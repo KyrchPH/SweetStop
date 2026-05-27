@@ -1,9 +1,12 @@
 import { Download, FileText, RefreshCw } from "lucide-react";
 import { useCallback, useState } from "react";
 
+import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { useApiResource } from "../hooks/useApiResource";
+import { uploadReportPdf } from "../services/firebase/storage";
 import { reportsApi } from "../services/api";
+import { buildDailyReportPdfBlob } from "../services/reports/pdf";
 import { formatDateTime, formatMoney, formatQuantity, getTodayDateOnly } from "../utils/formatters";
 
 function ReportsPage() {
@@ -27,12 +30,16 @@ function ReportsPage() {
   );
   const { data: reports, isLoading, error, reload } = useApiResource(loadReports, [loadReports]);
   const selectedReport = reports?.find((report) => report.id === selectedReportId) ?? reports?.[0] ?? null;
-  const { data: reportDetails } = useApiResource(
+  const { data: reportDetails, isLoading: isReportDetailsLoading } = useApiResource(
     () => (selectedReport ? reportsApi.getDaily(selectedReport.id) : Promise.resolve(null)),
     [selectedReport?.id]
   );
   const productSales = reportDetails?.product_sales ?? [];
   const cashierSales = reportDetails?.cashier_sales ?? [];
+
+  if (isLoading || isReportDetailsLoading) {
+    return <PageSkeleton rows={5} />;
+  }
 
   async function generateReport() {
     setMessage("");
@@ -58,6 +65,28 @@ function ReportsPage() {
     await reload();
   }
 
+  async function generateAndUploadPdf() {
+    if (!selectedReport) {
+      setMessage("Generate a report first.");
+      return;
+    }
+
+    setMessage("");
+    const blob = await buildDailyReportPdfBlob({
+      report: selectedReport,
+      productSales,
+      cashierSales
+    });
+    const downloadUrl = await uploadReportPdf({
+      blob,
+      reportId: selectedReport.id,
+      businessDate: selectedReport.business_date
+    });
+    await reportsApi.updatePdf(selectedReport.id, { pdf_url: downloadUrl });
+    setMessage("PDF generated and uploaded.");
+    await reload();
+  }
+
   return (
     <section className="page-grid reports-grid">
       <div className="toolbar-band">
@@ -80,6 +109,10 @@ function ReportsPage() {
           <button className="primary-button" onClick={() => window.print()} type="button">
             <Download size={18} />
             Print
+          </button>
+          <button className="primary-button" onClick={generateAndUploadPdf} type="button">
+            <Download size={18} />
+            Upload PDF
           </button>
         </div>
       </div>

@@ -186,6 +186,62 @@ export async function createProduct(payload) {
   return product;
 }
 
+export async function updateProduct(productId, payload) {
+  const currentResult = await query(
+    `
+    select id, category, name, photo_url, description, is_active
+    from public.products
+    where id = $1
+    `,
+    [productId]
+  );
+
+  if (currentResult.rows.length === 0) {
+    throw new HttpError(404, "Product not found.");
+  }
+
+  const current = currentResult.rows[0];
+  const result = await query(
+    `
+    update public.products
+    set
+      category = $2,
+      name = $3,
+      photo_url = $4,
+      description = $5,
+      is_active = $6
+    where id = $1
+    returning id, category, name, photo_url, description, is_active, created_at, updated_at
+    `,
+    [
+      productId,
+      payload.category ?? current.category,
+      payload.name ?? current.name,
+      payload.photo_url === undefined ? current.photo_url : payload.photo_url,
+      payload.description === undefined ? current.description : payload.description,
+      payload.is_active ?? current.is_active
+    ]
+  );
+
+  const product = result.rows[0];
+
+  if (payload.actor_account_id) {
+    await writeAuditLog({
+      account_id: payload.actor_account_id,
+      action: "PRODUCT_UPDATED",
+      entity_type: "product",
+      entity_id: product.id,
+      details: {
+        category: product.category,
+        name: product.name,
+        is_active: product.is_active
+      }
+    });
+  }
+
+  return product;
+}
+
 export async function createVariant(productId, payload) {
   return withTransaction(async (client) => {
     const productResult = await client.query(
@@ -264,6 +320,63 @@ export async function createVariant(productId, payload) {
 
     return variant;
   });
+}
+
+export async function updateVariant(variantId, payload) {
+  const currentResult = await query(
+    `
+    select id, product_id, name, sku, description, tags, is_active
+    from public.product_variants
+    where id = $1
+    `,
+    [variantId]
+  );
+
+  if (currentResult.rows.length === 0) {
+    throw new HttpError(404, "Product variant not found.");
+  }
+
+  const current = currentResult.rows[0];
+  const result = await query(
+    `
+    update public.product_variants
+    set
+      name = $2,
+      sku = $3,
+      description = $4,
+      tags = $5::jsonb,
+      is_active = $6
+    where id = $1
+    returning id, product_id, name, sku, description, tags, is_active, created_at, updated_at
+    `,
+    [
+      variantId,
+      payload.name ?? current.name,
+      payload.sku === undefined ? current.sku : payload.sku,
+      payload.description === undefined ? current.description : payload.description,
+      JSON.stringify(payload.tags === undefined ? current.tags : payload.tags),
+      payload.is_active ?? current.is_active
+    ]
+  );
+
+  const variant = result.rows[0];
+
+  if (payload.actor_account_id) {
+    await writeAuditLog({
+      account_id: payload.actor_account_id,
+      action: "PRODUCT_VARIANT_UPDATED",
+      entity_type: "product_variant",
+      entity_id: variant.id,
+      details: {
+        product_id: variant.product_id,
+        name: variant.name,
+        sku: variant.sku,
+        is_active: variant.is_active
+      }
+    });
+  }
+
+  return variant;
 }
 
 export async function updateBranchVariantConfig(branchId, variantId, payload) {

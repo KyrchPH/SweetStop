@@ -34,3 +34,31 @@ export async function createBranch(req, res) {
 
   res.status(201).json({ ok: true, data });
 }
+
+export async function updateBranch(req, res) {
+  const { branchId } = req.params;
+  const { name, address, timezone, status } = req.body ?? {};
+
+  assertUuid(branchId, "branchId");
+
+  if (name !== undefined) {
+    assertNonEmptyString(name, "name");
+  }
+
+  const normalizedStatus =
+    typeof status === "string" && status.trim() !== "" ? status.trim().toUpperCase() : undefined;
+
+  if (normalizedStatus && normalizedStatus !== "ACTIVE" && normalizedStatus !== "INACTIVE") {
+    throw new HttpError(400, "status must be ACTIVE or INACTIVE.");
+  }
+
+  const data = await branchesService.updateBranch(branchId, {
+    name: name?.trim(),
+    address,
+    timezone,
+    status: normalizedStatus,
+    actor_account_id: req.auth.account_id
+  });
+
+  res.status(200).json({ ok: true, data });
+}

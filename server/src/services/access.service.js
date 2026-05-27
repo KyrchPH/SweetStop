@@ -224,6 +224,96 @@ export async function updateAccountAccess(accountId, payload) {
   return account;
 }
 
+export async function updateAccountStatus(accountId, payload) {
+  const normalizedStatus = String(payload.status ?? "").trim().toUpperCase();
+
+  if (!["ACTIVE", "INACTIVE", "LOCKED"].includes(normalizedStatus)) {
+    throw new HttpError(400, "status must be ACTIVE, INACTIVE, or LOCKED.");
+  }
+
+  const result = await query(
+    `
+    update public.accounts
+    set
+      status = $2,
+      locked_until = case when $2 = 'LOCKED' then locked_until else null end,
+      failed_login_count = case when $2 = 'ACTIVE' then 0 else failed_login_count end
+    where id = $1
+    returning *
+    `,
+    [accountId, normalizedStatus]
+  );
+
+  if (result.rows.length === 0) {
+    throw new HttpError(404, "Account not found.");
+  }
+
+  const account = result.rows[0];
+
+  if (payload.actor_account_id) {
+    await writeAuditLog({
+      account_id: payload.actor_account_id,
+      action: "ACCOUNT_STATUS_UPDATED",
+      entity_type: "account",
+      entity_id: account.id,
+      details: {
+        username: account.username,
+        status: account.status
+      }
+    });
+  }
+
+  return account;
+}
+
+export async function updateAccountPassword(accountId, payload) {
+  const result = await query(
+    `
+    update public.accounts
+    set
+      password_hash = $2,
+      password_changed_at = now(),
+      failed_login_count = 0,
+      locked_until = null
+    where id = $1
+    returning id, username, password_changed_at
+    `,
+    [accountId, hashPassword(payload.password)]
+  );
+
+  if (result.rows.length === 0) {
+    throw new HttpError(404, "Account not found.");
+  }
+
+  const account = result.rows[0];
+
+  await query(
+    `
+    update public.auth_refresh_tokens
+    set
+      revoked_at = now(),
+      revocation_reason = 'ADMIN_PASSWORD_RESET'
+    where account_id = $1
+      and revoked_at is null
+    `,
+    [accountId]
+  );
+
+  if (payload.actor_account_id) {
+    await writeAuditLog({
+      account_id: payload.actor_account_id,
+      action: "ACCOUNT_PASSWORD_RESET",
+      entity_type: "account",
+      entity_id: account.id,
+      details: {
+        username: account.username
+      }
+    });
+  }
+
+  return account;
+}
+
 export async function upsertBranchRole(accountId, payload) {
   const result = await query(
     `

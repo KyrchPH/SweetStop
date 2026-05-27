@@ -100,6 +100,40 @@ export async function updateAccountAccess(req, res) {
   res.status(200).json({ ok: true, data });
 }
 
+export async function updateAccountStatus(req, res) {
+  const { accountId } = req.params;
+  const { status } = req.body ?? {};
+
+  assertUuid(accountId, "accountId");
+  assertNonEmptyString(status, "status");
+
+  const data = await accessService.updateAccountStatus(accountId, {
+    status,
+    actor_account_id: req.auth.account_id
+  });
+
+  res.status(200).json({ ok: true, data });
+}
+
+export async function updateAccountPassword(req, res) {
+  const { accountId } = req.params;
+  const { password } = req.body ?? {};
+
+  assertUuid(accountId, "accountId");
+  assertNonEmptyString(password, "password");
+
+  if (password.trim().length < 8) {
+    throw new HttpError(400, "password must be at least 8 characters.");
+  }
+
+  const data = await accessService.updateAccountPassword(accountId, {
+    password,
+    actor_account_id: req.auth.account_id
+  });
+
+  res.status(200).json({ ok: true, data });
+}
+
 export async function upsertBranchRole(req, res) {
   const { accountId } = req.params;
   const { branch_id, access_id, is_primary } = req.body ?? {};

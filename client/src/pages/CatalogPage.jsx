@@ -1,6 +1,7 @@
 import { Boxes, EyeOff, Plus, SlidersHorizontal } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
+import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { useApiResource } from "../hooks/useApiResource";
 import { catalogApi } from "../services/api";
@@ -8,8 +9,24 @@ import { flattenBranchProducts, formatMoney, formatQuantity } from "../utils/for
 
 function CatalogPage() {
   const { activeBranchId } = useAuth();
-  const [productForm, setProductForm] = useState({ category: "", name: "" });
-  const [variantForm, setVariantForm] = useState({ product_id: "", name: "", default_price: "0" });
+  const [productForm, setProductForm] = useState({
+    id: "",
+    category: "",
+    name: "",
+    photo_url: "",
+    description: "",
+    is_active: true
+  });
+  const [variantForm, setVariantForm] = useState({
+    variant_id: "",
+    product_id: "",
+    name: "",
+    sku: "",
+    description: "",
+    tags: "{}",
+    default_price: "0",
+    is_active: true
+  });
   const [configForm, setConfigForm] = useState({
     variant_id: "",
     price: "",
@@ -27,14 +44,18 @@ function CatalogPage() {
   const productRows = products ?? [];
   const variantRows = useMemo(() => flattenBranchProducts(productRows), [productRows]);
 
+  if (isLoading) {
+    return <PageSkeleton rows={6} />;
+  }
+
   function updateProductForm(event) {
-    const { name, value } = event.target;
-    setProductForm((current) => ({ ...current, [name]: value }));
+    const { name, value, checked, type } = event.target;
+    setProductForm((current) => ({ ...current, [name]: type === "checkbox" ? checked : value }));
   }
 
   function updateVariantForm(event) {
-    const { name, value } = event.target;
-    setVariantForm((current) => ({ ...current, [name]: value }));
+    const { name, value, checked, type } = event.target;
+    setVariantForm((current) => ({ ...current, [name]: type === "checkbox" ? checked : value }));
   }
 
   function updateConfigForm(event) {
@@ -48,27 +69,67 @@ function CatalogPage() {
   async function createProduct(event) {
     event.preventDefault();
     setMessage("");
-    await catalogApi.createProduct({
+    const payload = {
       category: productForm.category,
       name: productForm.name,
-      is_active: true
-    });
-    setProductForm({ category: "", name: "" });
-    setMessage("Product created.");
+      photo_url: productForm.photo_url || null,
+      description: productForm.description || null,
+      is_active: productForm.is_active
+    };
+
+    if (productForm.id) {
+      await catalogApi.updateProduct(productForm.id, payload);
+      setMessage("Product updated.");
+    } else {
+      await catalogApi.createProduct(payload);
+      setMessage("Product created.");
+    }
+
+    setProductForm({ id: "", category: "", name: "", photo_url: "", description: "", is_active: true });
     await reload();
   }
 
   async function createVariant(event) {
     event.preventDefault();
     setMessage("");
-    await catalogApi.createVariant(variantForm.product_id, {
+    let tags = {};
+
+    try {
+      tags = JSON.parse(variantForm.tags || "{}");
+    } catch {
+      setMessage("Variant tags must be valid JSON.");
+      return;
+    }
+
+    const payload = {
       name: variantForm.name,
-      default_price: Number(variantForm.default_price),
-      is_active: true,
-      tags: {}
+      sku: variantForm.sku || null,
+      description: variantForm.description || null,
+      is_active: variantForm.is_active,
+      tags
+    };
+
+    if (variantForm.variant_id) {
+      await catalogApi.updateVariant(variantForm.variant_id, payload);
+      setMessage("Variant updated.");
+    } else {
+      await catalogApi.createVariant(variantForm.product_id, {
+        ...payload,
+        default_price: Number(variantForm.default_price)
+      });
+      setMessage("Variant created.");
+    }
+
+    setVariantForm({
+      variant_id: "",
+      product_id: "",
+      name: "",
+      sku: "",
+      description: "",
+      tags: "{}",
+      default_price: "0",
+      is_active: true
     });
-    setVariantForm({ product_id: "", name: "", default_price: "0" });
-    setMessage("Variant created.");
     await reload();
   }
 
@@ -93,6 +154,24 @@ function CatalogPage() {
   }
 
   function selectVariant(variant) {
+    setProductForm({
+      id: variant.product_id,
+      category: variant.category,
+      name: variant.product_name,
+      photo_url: variant.photo_url ?? "",
+      description: variant.product_description ?? "",
+      is_active: variant.product_is_active !== false
+    });
+    setVariantForm({
+      variant_id: variant.variant_id,
+      product_id: variant.product_id,
+      name: variant.variant_name,
+      sku: variant.sku ?? "",
+      description: variant.variant_description ?? "",
+      tags: JSON.stringify(variant.tags ?? {}, null, 2),
+      default_price: String(variant.price),
+      is_active: variant.variant_is_active !== false
+    });
     setConfigForm({
       variant_id: variant.variant_id,
       price: String(variant.price),
@@ -124,7 +203,7 @@ function CatalogPage() {
         <div className="panel-title-row">
           <div>
             <span className="section-kicker">Branch catalog</span>
-            <h2>{isLoading ? "Loading products" : `${variantRows.length} variants`}</h2>
+            <h2>{variantRows.length} variants</h2>
           </div>
           <Boxes size={22} />
         </div>
@@ -157,8 +236,8 @@ function CatalogPage() {
       </article>
 
       <article className="feature-panel settings-panel">
-        <span className="section-kicker">Create</span>
-        <h2>Add product</h2>
+        <span className="section-kicker">{productForm.id ? "Edit" : "Create"}</span>
+        <h2>{productForm.id ? "Update product" : "Add product"}</h2>
         <form className="form-grid single-column" onSubmit={createProduct}>
           <label>
             <span>Name</span>
@@ -168,16 +247,28 @@ function CatalogPage() {
             <span>Category</span>
             <input name="category" onChange={updateProductForm} required value={productForm.category} />
           </label>
+          <label>
+            <span>Photo URL</span>
+            <input name="photo_url" onChange={updateProductForm} value={productForm.photo_url} />
+          </label>
+          <label>
+            <span>Description</span>
+            <input name="description" onChange={updateProductForm} value={productForm.description} />
+          </label>
+          <label className="check-row">
+            <input checked={productForm.is_active} name="is_active" onChange={updateProductForm} type="checkbox" />
+            <span>Active product</span>
+          </label>
           <button className="primary-button full-width" type="submit">
             <Plus size={18} />
-            Product
+            {productForm.id ? "Save product" : "Product"}
           </button>
         </form>
       </article>
 
       <article className="feature-panel settings-panel">
-        <span className="section-kicker">Create</span>
-        <h2>Add variant</h2>
+        <span className="section-kicker">{variantForm.variant_id ? "Edit" : "Create"}</span>
+        <h2>{variantForm.variant_id ? "Update variant" : "Add variant"}</h2>
         <form className="form-grid single-column" onSubmit={createVariant}>
           <label>
             <span>Product</span>
@@ -195,8 +286,21 @@ function CatalogPage() {
             <input name="name" onChange={updateVariantForm} required value={variantForm.name} />
           </label>
           <label>
+            <span>SKU</span>
+            <input name="sku" onChange={updateVariantForm} value={variantForm.sku} />
+          </label>
+          <label>
+            <span>Description</span>
+            <input name="description" onChange={updateVariantForm} value={variantForm.description} />
+          </label>
+          <label>
+            <span>Tags JSON</span>
+            <textarea name="tags" onChange={updateVariantForm} value={variantForm.tags} />
+          </label>
+          <label>
             <span>Default price</span>
             <input
+              disabled={Boolean(variantForm.variant_id)}
               name="default_price"
               onChange={updateVariantForm}
               required
@@ -204,9 +308,13 @@ function CatalogPage() {
               value={variantForm.default_price}
             />
           </label>
+          <label className="check-row">
+            <input checked={variantForm.is_active} name="is_active" onChange={updateVariantForm} type="checkbox" />
+            <span>Active variant</span>
+          </label>
           <button className="primary-button full-width" type="submit">
             <Plus size={18} />
-            Variant
+            {variantForm.variant_id ? "Save variant" : "Variant"}
           </button>
         </form>
       </article>

@@ -1,6 +1,7 @@
 import { ArrowDownLeft, ArrowUpRight, CheckCircle2, Coins } from "lucide-react";
 import { useCallback, useState } from "react";
 
+import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { useApiResource } from "../hooks/useApiResource";
 import { cashApi, shiftsApi } from "../services/api";
@@ -34,6 +35,11 @@ function CashLedgerPage() {
   }, [activeBranchId]);
 
   const { data, isLoading, error, reload } = useApiResource(loadCashData, [loadCashData]);
+
+  if (isLoading) {
+    return <PageSkeleton rows={5} />;
+  }
+
   const movements = data?.movements ?? [];
   const cashIn = movements
     .filter((movement) => movement.movement_type === "IN" && movement.status === "POSTED")
@@ -129,7 +135,7 @@ function CashLedgerPage() {
         <div className="panel-title-row">
           <div>
             <span className="section-kicker">History</span>
-            <h2>{isLoading ? "Loading movements" : "Posted movements"}</h2>
+            <h2>Posted movements</h2>
           </div>
         </div>
         {error ? <p className="form-message is-error">{error}</p> : null}

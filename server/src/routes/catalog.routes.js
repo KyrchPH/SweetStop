@@ -6,6 +6,8 @@ import {
   createProduct,
   createVariant,
   listProducts,
+  updateProduct,
+  updateVariant,
   updateBranchVariantConfig,
   updateBranchVariantInventory
 } from "../controllers/catalog.controller.js";
@@ -17,7 +19,9 @@ router.use(authenticate);
 
 router.get("/products", authorize("product.view"), asyncHandler(listProducts));
 router.post("/products", authorize("product.create"), asyncHandler(createProduct));
+router.patch("/products/:productId", authorize("product.update"), asyncHandler(updateProduct));
 router.post("/products/:productId/variants", authorize("product.create"), asyncHandler(createVariant));
+router.patch("/variants/:variantId", authorize("product.update"), asyncHandler(updateVariant));
 router.patch(
   "/branches/:branchId/variants/:variantId/config",
   authorize("product.branch_availability.update"),

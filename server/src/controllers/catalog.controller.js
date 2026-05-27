@@ -38,6 +38,34 @@ export async function createProduct(req, res) {
   res.status(201).json({ ok: true, data });
 }
 
+export async function updateProduct(req, res) {
+  const { productId } = req.params;
+  const { category, name, photo_url, description, is_active } = req.body ?? {};
+
+  assertUuid(productId, "productId");
+
+  if (category !== undefined) {
+    assertNonEmptyString(category, "category");
+  }
+
+  if (name !== undefined) {
+    assertNonEmptyString(name, "name");
+  }
+
+  parseBooleanOrUndefined(is_active, "is_active");
+
+  const data = await catalogService.updateProduct(productId, {
+    category: category?.trim(),
+    name: name?.trim(),
+    photo_url,
+    description,
+    is_active,
+    actor_account_id: req.auth.account_id
+  });
+
+  res.status(200).json({ ok: true, data });
+}
+
 export async function createVariant(req, res) {
   const { productId } = req.params;
   const { name, sku, description, tags, is_active, default_price } = req.body ?? {};
@@ -63,6 +91,34 @@ export async function createVariant(req, res) {
   });
 
   res.status(201).json({ ok: true, data });
+}
+
+export async function updateVariant(req, res) {
+  const { variantId } = req.params;
+  const { name, sku, description, tags, is_active } = req.body ?? {};
+
+  assertUuid(variantId, "variantId");
+
+  if (name !== undefined) {
+    assertNonEmptyString(name, "name");
+  }
+
+  parseBooleanOrUndefined(is_active, "is_active");
+
+  if (tags !== undefined && (typeof tags !== "object" || tags === null || Array.isArray(tags))) {
+    throw new HttpError(400, "tags must be an object.");
+  }
+
+  const data = await catalogService.updateVariant(variantId, {
+    name: name?.trim(),
+    sku,
+    description,
+    tags,
+    is_active,
+    actor_account_id: req.auth.account_id
+  });
+
+  res.status(200).json({ ok: true, data });
 }
 
 export async function updateBranchVariantConfig(req, res) {

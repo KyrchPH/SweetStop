@@ -1,6 +1,7 @@
 import {
   BadgeDollarSign,
   BarChart3,
+  Building2,
   Boxes,
   Calculator,
   FileText,
@@ -10,10 +11,12 @@ import {
   ShieldCheck,
   Store
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { SkeletonBlock } from "./components/SkeletonLoader";
 import { useAuth } from "./context/AuthContext";
 import AccessPage from "./pages/AccessPage";
+import BranchesPage from "./pages/BranchesPage";
 import CashLedgerPage from "./pages/CashLedgerPage";
 import CatalogPage from "./pages/CatalogPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -62,7 +65,16 @@ const PAGES = [
     label: "Access",
     eyebrow: "Team",
     icon: ShieldCheck,
-    component: AccessPage
+    component: AccessPage,
+    permission: "account.manage"
+  },
+  {
+    id: "branches",
+    label: "Branches",
+    eyebrow: "Locations",
+    icon: Building2,
+    component: BranchesPage,
+    permission: "account.manage"
   }
 ];
 
@@ -75,15 +87,26 @@ function App() {
     isAuthenticated,
     isBootstrapping,
     logout,
+    hasPermission,
     setActiveBranchId
   } = useAuth();
   const [activePageId, setActivePageId] = useState("dashboard");
   const [isNavOpen, setIsNavOpen] = useState(false);
+  const visiblePages = useMemo(
+    () => PAGES.filter((page) => !page.permission || hasPermission(page.permission)),
+    [hasPermission]
+  );
   const activePage = useMemo(
-    () => PAGES.find((page) => page.id === activePageId) ?? PAGES[0],
-    [activePageId]
+    () => visiblePages.find((page) => page.id === activePageId) ?? visiblePages[0] ?? PAGES[0],
+    [activePageId, visiblePages]
   );
   const ActivePage = activePage.component;
+
+  useEffect(() => {
+    if (!visiblePages.some((page) => page.id === activePageId)) {
+      setActivePageId(visiblePages[0]?.id ?? "dashboard");
+    }
+  }, [activePageId, visiblePages]);
 
   function selectPage(pageId) {
     setActivePageId(pageId);
@@ -95,13 +118,13 @@ function App() {
       <main className="login-screen">
         <section className="login-panel compact-panel">
           <div className="brand-lockup login-brand">
-            <span className="brand-mark">
-              <Store size={20} strokeWidth={2.4} />
-            </span>
-            <span>
-              <strong>SweetStop</strong>
-              <small>Loading session</small>
-            </span>
+            <img className="brand-name-image" src="/name.png" alt="SweetStop" />
+          </div>
+          <div className="skeleton-rows" aria-busy="true">
+            <SkeletonBlock className="skeleton-title" />
+            <SkeletonBlock className="skeleton-row" />
+            <SkeletonBlock className="skeleton-row" />
+            <SkeletonBlock className="skeleton-button" />
           </div>
         </section>
       </main>
@@ -116,17 +139,11 @@ function App() {
     <div className="app-shell">
       <aside className={`side-nav ${isNavOpen ? "is-open" : ""}`}>
         <div className="brand-lockup">
-          <span className="brand-mark">
-            <Store size={20} strokeWidth={2.4} />
-          </span>
-          <span>
-            <strong>SweetStop</strong>
-            <small>Branch POS</small>
-          </span>
+          <img className="brand-name-image" src="/name.png" alt="SweetStop" />
         </div>
 
         <nav className="nav-list" aria-label="Primary navigation">
-          {PAGES.map((page) => {
+          {visiblePages.map((page) => {
             const Icon = page.icon;
             const isActive = page.id === activePageId;
 
@@ -202,7 +219,7 @@ function App() {
         </header>
 
         <main className="page-content">
-          {activeBranch || activePageId === "access" ? (
+          {activeBranch || activePageId === "access" || activePageId === "branches" ? (
             <ActivePage />
           ) : (
             <section className="feature-panel">

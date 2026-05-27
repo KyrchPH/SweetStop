@@ -1,6 +1,8 @@
 import { Minus, Plus, ReceiptText, Search, Trash2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
+import ReceiptPreview from "../components/ReceiptPreview";
+import { RegisterSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { useApiResource } from "../hooks/useApiResource";
 import { catalogApi, posApi, shiftsApi } from "../services/api";
@@ -13,21 +15,24 @@ function RegisterPage() {
   const [cart, setCart] = useState([]);
   const [cashReceived, setCashReceived] = useState("");
   const [message, setMessage] = useState("");
+  const [receiptPreview, setReceiptPreview] = useState(null);
 
   const loadRegisterData = useCallback(async () => {
     if (!activeBranchId) {
-      return { products: [], shift: null };
+      return { products: [], shift: null, receipts: [] };
     }
 
-    const [products, shift] = await Promise.all([
+    const [products, shift, receipts] = await Promise.all([
       catalogApi.listProducts(activeBranchId),
-      shiftsApi.current(activeBranchId)
+      shiftsApi.current(activeBranchId),
+      posApi.listReceipts({ branch_id: activeBranchId })
     ]);
 
-    return { products, shift };
+    return { products, shift, receipts };
   }, [activeBranchId]);
 
   const { data, isLoading, error, reload } = useApiResource(loadRegisterData, [loadRegisterData]);
+
   const variants = useMemo(() => flattenBranchProducts(data?.products ?? []), [data?.products]);
   const sellableVariants = variants.filter((variant) => variant.availability_status === "AVAILABLE");
   const categories = ["All", ...new Set(sellableVariants.map((variant) => variant.category))];
@@ -39,6 +44,10 @@ function RegisterPage() {
   const subtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
   const cash = Number(cashReceived || 0);
   const change = Math.max(0, cash - subtotal);
+
+  if (isLoading) {
+    return <RegisterSkeleton />;
+  }
 
   function addToCart(variant) {
     setMessage("");
@@ -91,7 +100,13 @@ function RegisterPage() {
     setCart([]);
     setCashReceived("");
     setMessage(`Receipt issued: ${receipt.receipt.receipt_no}`);
+    setReceiptPreview(receipt);
     await reload();
+  }
+
+  async function previewReceipt(receiptId) {
+    const details = await posApi.getReceipt(receiptId);
+    setReceiptPreview(details);
   }
 
   return (
@@ -121,7 +136,6 @@ function RegisterPage() {
         </div>
 
         {error ? <p className="form-message is-error">{error}</p> : null}
-        {isLoading ? <p className="form-message">Loading register...</p> : null}
         {!data?.shift ? <p className="form-message">No open shift. Receipts can still be recorded without shift link.</p> : null}
 
         <div className="menu-grid">
@@ -197,7 +211,19 @@ function RegisterPage() {
           <ReceiptText size={18} />
           Issue receipt
         </button>
+
+        <div className="recent-receipts">
+          <span className="section-kicker">Reprint</span>
+          {(data?.receipts ?? []).slice(0, 5).map((receipt) => (
+            <button key={receipt.id} onClick={() => previewReceipt(receipt.id)} type="button">
+              <strong>{receipt.receipt_no}</strong>
+              <span>{formatMoney(receipt.total_amount)}</span>
+            </button>
+          ))}
+        </div>
       </aside>
+
+      <ReceiptPreview receiptDetails={receiptPreview} onClose={() => setReceiptPreview(null)} />
     </section>
   );
 }

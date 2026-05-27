@@ -1,6 +1,7 @@
-import { KeyRound, Store } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { useState } from "react";
 
+import { SkeletonBlock } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 
 function LoginPage() {
@@ -43,13 +44,7 @@ function LoginPage() {
     <main className="login-screen">
       <section className="login-panel">
         <div className="brand-lockup login-brand">
-          <span className="brand-mark">
-            <Store size={20} strokeWidth={2.4} />
-          </span>
-          <span>
-            <strong>SweetStop</strong>
-            <small>Branch POS</small>
-          </span>
+          <img className="brand-name-image" src="/name.png" alt="SweetStop" />
         </div>
 
         <form className="login-form" onSubmit={handleSubmit}>
@@ -94,8 +89,14 @@ function LoginPage() {
           {error ? <p className="form-message is-error">{error}</p> : null}
 
           <button className="primary-button full-width" disabled={isSubmitting} type="submit">
-            <KeyRound size={18} />
-            {isSubmitting ? "Signing in..." : "Sign in"}
+            {isSubmitting ? (
+              <SkeletonBlock className="skeleton-button-label" />
+            ) : (
+              <>
+                <KeyRound size={18} />
+                Sign in
+              </>
+            )}
           </button>
         </form>
       </section>

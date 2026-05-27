@@ -1,6 +1,7 @@
 import { ArrowDownLeft, ArrowUpRight, Clock3, ReceiptText, TrendingUp } from "lucide-react";
 import { useCallback, useState } from "react";
 
+import { DashboardSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { useApiResource } from "../hooks/useApiResource";
 import { cashApi, posApi, reportsApi, shiftsApi } from "../services/api";
@@ -57,6 +58,11 @@ function DashboardPage() {
   }, [activeBranchId, today]);
 
   const { data, isLoading, error, reload } = useApiResource(loadDashboard, [loadDashboard]);
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
   const receipts = data?.receipts ?? [];
   const movements = data?.movements ?? [];
   const report = data?.reports?.[0] ?? null;
@@ -117,8 +123,6 @@ function DashboardPage() {
       </div>
 
       {error ? <p className="form-message is-error span-grid">{error}</p> : null}
-      {isLoading ? <p className="form-message span-grid">Loading dashboard...</p> : null}
-
       <article className="feature-panel shift-panel">
         <div className="panel-heading">
           <span className={`status-pill ${shift ? "is-live" : ""}`}>

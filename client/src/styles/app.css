@@ -41,7 +41,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   color: inherit;
   font: inherit;
 }
@@ -53,7 +54,8 @@ button {
 }
 
 input,
-select {
+select,
+textarea {
   min-width: 0;
   border: 0;
   outline: 0;
@@ -61,7 +63,8 @@ select {
 
 button:focus-visible,
 input:focus-visible,
-select:focus-visible {
+select:focus-visible,
+textarea:focus-visible {
   outline: 0;
   box-shadow: var(--shadow-focus);
 }
@@ -128,6 +131,84 @@ select:disabled {
   padding: 0 12px;
   border-radius: var(--radius);
   background: var(--page);
+}
+
+.skeleton-block {
+  display: block;
+  overflow: hidden;
+  min-height: 14px;
+  border-radius: var(--radius);
+  background: linear-gradient(90deg, #e1eae5 0%, #f4f8f5 44%, #e1eae5 88%);
+  background-size: 220% 100%;
+  animation: skeleton-pulse 1100ms ease-in-out infinite;
+}
+
+.skeleton-rows {
+  display: grid;
+  gap: 10px;
+}
+
+.skeleton-row {
+  min-height: 54px;
+}
+
+.skeleton-short {
+  width: 34%;
+}
+
+.skeleton-medium {
+  width: 62%;
+}
+
+.skeleton-title {
+  width: 76%;
+  min-height: 28px;
+  margin-top: 12px;
+}
+
+.skeleton-hero {
+  width: 72%;
+  min-height: 52px;
+  margin: 30px 0 18px;
+}
+
+.skeleton-button {
+  width: 132px;
+  min-height: 44px;
+}
+
+.skeleton-button-label {
+  width: 96px;
+  min-height: 18px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.46), rgba(255, 255, 255, 0.18));
+  background-size: 220% 100%;
+}
+
+.skeleton-input,
+.skeleton-tabs {
+  min-height: 46px;
+}
+
+.brand-name-image {
+  display: block;
+  width: 128px;
+  max-width: 100%;
+  height: auto;
+}
+
+.side-nav .brand-name-image {
+  filter: brightness(0) invert(1);
+  width: 136px;
+}
+
+@keyframes skeleton-pulse {
+  0% {
+    background-position: 120% 0;
+  }
+
+  100% {
+    background-position: -120% 0;
+  }
 }
 
 .app-shell {
@@ -514,6 +595,17 @@ select:disabled {
   padding: 12px 14px;
 }
 
+.action-row {
+  width: 100%;
+  text-align: left;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .toolbar-band {
   justify-content: space-between;
   gap: 16px;
@@ -768,6 +860,82 @@ select:disabled {
   color: #ffffff;
 }
 
+.recent-receipts {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.recent-receipts button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 10px;
+  border-radius: var(--radius);
+  background: var(--page);
+}
+
+.modal-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(23, 35, 40, 0.48);
+}
+
+.receipt-sheet {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 420px);
+}
+
+.receipt-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.receipt-paper {
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+  border-radius: var(--radius);
+  background: #ffffff;
+  color: #172328;
+}
+
+.receipt-head,
+.receipt-items,
+.receipt-totals {
+  display: grid;
+  gap: 8px;
+}
+
+.receipt-head {
+  text-align: center;
+}
+
+.receipt-brand-image {
+  justify-self: center;
+  width: 132px;
+  height: auto;
+}
+
+.receipt-items > div,
+.receipt-totals {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+}
+
+.receipt-items > div strong {
+  grid-column: 2;
+}
+
 .payment-box > div {
   display: flex;
   align-items: center;
@@ -814,12 +982,19 @@ select:disabled {
 
 .form-grid input,
 .form-grid select,
+.form-grid textarea,
 .toolbar-input,
 .shift-controls input {
   min-height: 46px;
   padding: 0 12px;
   border-radius: var(--radius);
   background: var(--page);
+}
+
+.form-grid textarea {
+  min-height: 88px;
+  padding: 12px;
+  resize: vertical;
 }
 
 .single-column {
@@ -1060,5 +1235,31 @@ select:disabled {
 
   .branch-chip select {
     max-width: 120px;
+  }
+}
+
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .receipt-paper,
+  .receipt-paper * {
+    visibility: visible;
+  }
+
+  .receipt-paper {
+    position: fixed;
+    inset: 0;
+    width: 80mm;
+    padding: 8mm;
+  }
+
+  .no-print {
+    display: none !important;
   }
 }

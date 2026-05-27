@@ -1,13 +1,14 @@
 import { KeyRound, Plus, ShieldCheck } from "lucide-react";
 import { useCallback, useState } from "react";
 
+import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { useApiResource } from "../hooks/useApiResource";
 import { accessApi } from "../services/api";
 import { formatDateTime } from "../utils/formatters";
 
 function AccessPage() {
-  const { activeBranchId } = useAuth();
+  const { activeBranchId, branches } = useAuth();
   const [form, setForm] = useState({
     firstname: "",
     lastname: "",
@@ -17,10 +18,20 @@ function AccessPage() {
     access_id: ""
   });
   const [message, setMessage] = useState("");
+  const [branchRoleForm, setBranchRoleForm] = useState({
+    account_id: "",
+    branch_id: activeBranchId || "",
+    access_id: "",
+    is_primary: false
+  });
+  const [passwordForm, setPasswordForm] = useState({
+    account_id: "",
+    password: ""
+  });
 
   const loadAccessData = useCallback(async () => {
     const [accounts, roles, permissions] = await Promise.all([
-      accessApi.listAccounts(activeBranchId || undefined),
+      accessApi.listAccounts(),
       accessApi.listRoles(),
       accessApi.listPermissions()
     ]);
@@ -32,9 +43,26 @@ function AccessPage() {
   const roles = data?.roles ?? [];
   const permissions = data?.permissions ?? [];
 
+  if (isLoading) {
+    return <PageSkeleton rows={6} />;
+  }
+
   function updateForm(event) {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  function updateBranchRoleForm(event) {
+    const { name, value, checked, type } = event.target;
+    setBranchRoleForm((current) => ({
+      ...current,
+      [name]: type === "checkbox" ? checked : value
+    }));
+  }
+
+  function updatePasswordForm(event) {
+    const { name, value } = event.target;
+    setPasswordForm((current) => ({ ...current, [name]: value }));
   }
 
   async function createAccount(event) {
@@ -64,6 +92,35 @@ function AccessPage() {
     await reload();
   }
 
+  async function updateStatus(accountId, status) {
+    setMessage("");
+    await accessApi.updateAccountStatus(accountId, { status });
+    setMessage("Account status updated.");
+    await reload();
+  }
+
+  async function saveBranchRole(event) {
+    event.preventDefault();
+    setMessage("");
+    await accessApi.upsertBranchRole(branchRoleForm.account_id, {
+      branch_id: branchRoleForm.branch_id,
+      access_id: Number(branchRoleForm.access_id),
+      is_primary: branchRoleForm.is_primary
+    });
+    setMessage("Branch role saved.");
+    await reload();
+  }
+
+  async function resetPassword(event) {
+    event.preventDefault();
+    setMessage("");
+    await accessApi.updateAccountPassword(passwordForm.account_id, {
+      password: passwordForm.password
+    });
+    setPasswordForm({ account_id: "", password: "" });
+    setMessage("Password reset.");
+  }
+
   return (
     <section className="page-grid access-grid">
       <div className="toolbar-band">
@@ -83,7 +140,7 @@ function AccessPage() {
         <div className="panel-title-row">
           <div>
             <span className="section-kicker">Accounts</span>
-            <h2>{isLoading ? "Loading team" : `${accounts.length} team members`}</h2>
+            <h2>{accounts.length} team members</h2>
           </div>
           <ShieldCheck size={22} />
         </div>
@@ -102,6 +159,14 @@ function AccessPage() {
                 {user.status}
               </span>
               <span>{formatDateTime(user.last_active_at)}</span>
+              <div className="row-actions">
+                <button className="soft-button" onClick={() => updateStatus(user.id, "ACTIVE")} type="button">
+                  Activate
+                </button>
+                <button className="soft-button" onClick={() => updateStatus(user.id, "INACTIVE")} type="button">
+                  Deactivate
+                </button>
+              </div>
             </div>
           ))}
           {accounts.length === 0 && !isLoading ? <p className="empty-state">No accounts found.</p> : null}
@@ -151,6 +216,99 @@ function AccessPage() {
           <button className="primary-button full-width" type="submit">
             <Plus size={18} />
             Account
+          </button>
+        </form>
+      </article>
+
+      <article className="feature-panel permissions-panel">
+        <div className="panel-title-row">
+          <div>
+            <span className="section-kicker">Branch role</span>
+            <h2>Assign branch</h2>
+          </div>
+          <ShieldCheck size={22} />
+        </div>
+        <form className="form-grid single-column" onSubmit={saveBranchRole}>
+          <label>
+            <span>Account</span>
+            <select name="account_id" onChange={updateBranchRoleForm} required value={branchRoleForm.account_id}>
+              <option value="">Select account</option>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.firstname} {account.lastname}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Branch</span>
+            <select name="branch_id" onChange={updateBranchRoleForm} required value={branchRoleForm.branch_id}>
+              <option value="">Select branch</option>
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Role</span>
+            <select name="access_id" onChange={updateBranchRoleForm} required value={branchRoleForm.access_id}>
+              <option value="">Select role</option>
+              {roles.map((role) => (
+                <option key={role.id} value={role.id}>
+                  {role.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="check-row">
+            <input
+              checked={branchRoleForm.is_primary}
+              name="is_primary"
+              onChange={updateBranchRoleForm}
+              type="checkbox"
+            />
+            <span>Primary branch</span>
+          </label>
+          <button className="primary-button full-width" type="submit">
+            Save branch role
+          </button>
+        </form>
+      </article>
+
+      <article className="feature-panel permissions-panel">
+        <div className="panel-title-row">
+          <div>
+            <span className="section-kicker">Security</span>
+            <h2>Reset password</h2>
+          </div>
+          <KeyRound size={22} />
+        </div>
+        <form className="form-grid single-column" onSubmit={resetPassword}>
+          <label>
+            <span>Account</span>
+            <select name="account_id" onChange={updatePasswordForm} required value={passwordForm.account_id}>
+              <option value="">Select account</option>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.firstname} {account.lastname}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>New password</span>
+            <input
+              name="password"
+              onChange={updatePasswordForm}
+              required
+              type="password"
+              value={passwordForm.password}
+            />
+          </label>
+          <button className="primary-button full-width" type="submit">
+            Reset password
           </button>
         </form>
       </article>

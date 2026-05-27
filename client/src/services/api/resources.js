@@ -3,6 +3,12 @@ import { apiClient } from "./ApiClient";
 export const branchesApi = {
   list() {
     return apiClient.get("/branches");
+  },
+  create(payload) {
+    return apiClient.post("/branches", payload);
+  },
+  update(branchId, payload) {
+    return apiClient.patch(`/branches/${branchId}`, payload);
   }
 };
 
@@ -15,8 +21,14 @@ export const catalogApi = {
   createProduct(payload) {
     return apiClient.post("/catalog/products", payload);
   },
+  updateProduct(productId, payload) {
+    return apiClient.patch(`/catalog/products/${productId}`, payload);
+  },
   createVariant(productId, payload) {
     return apiClient.post(`/catalog/products/${productId}/variants`, payload);
+  },
+  updateVariant(variantId, payload) {
+    return apiClient.patch(`/catalog/variants/${variantId}`, payload);
   },
   updateBranchVariantConfig(branchId, variantId, payload) {
     return apiClient.patch(`/catalog/branches/${branchId}/variants/${variantId}/config`, payload);
@@ -91,6 +103,12 @@ export const accessApi = {
   },
   updateAccountAccess(accountId, payload) {
     return apiClient.patch(`/access/accounts/${accountId}/access`, payload);
+  },
+  updateAccountStatus(accountId, payload) {
+    return apiClient.patch(`/access/accounts/${accountId}/status`, payload);
+  },
+  updateAccountPassword(accountId, payload) {
+    return apiClient.patch(`/access/accounts/${accountId}/password`, payload);
   },
   upsertBranchRole(accountId, payload) {
     return apiClient.put(`/access/accounts/${accountId}/branch-role`, payload);

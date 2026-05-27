@@ -13,6 +13,8 @@ import {
   refreshSession,
   requestPasswordReset,
   updateAccountAccess,
+  updateAccountPassword,
+  updateAccountStatus,
   upsertBranchRole
 } from "../controllers/access.controller.js";
 import { authenticate } from "../middlewares/authenticate.js";
@@ -76,6 +78,8 @@ router.get("/permissions", authorize("role.manage"), asyncHandler(listPermission
 router.get("/accounts", authorize("account.manage"), asyncHandler(listAccounts));
 router.post("/accounts", authorize("account.manage"), asyncHandler(createAccount));
 router.patch("/accounts/:accountId/access", authorize("account.manage"), asyncHandler(updateAccountAccess));
+router.patch("/accounts/:accountId/status", authorize("account.manage"), asyncHandler(updateAccountStatus));
+router.patch("/accounts/:accountId/password", authorize("account.manage"), asyncHandler(updateAccountPassword));
 router.put("/accounts/:accountId/branch-role", authorize("account.manage"), asyncHandler(upsertBranchRole));
 
 export default router;

@@ -145,6 +145,30 @@ export function AuthProvider({ children }) {
     [activeBranchId, branches]
   );
 
+  const permissionSet = useMemo(() => {
+    const permissions = new Set(account?.global_permissions ?? []);
+    const activeBranchRole = (account?.branch_roles ?? []).find(
+      (role) => role.branch_id === activeBranchId
+    );
+
+    for (const permission of activeBranchRole?.permissions ?? []) {
+      permissions.add(permission);
+    }
+
+    return permissions;
+  }, [account, activeBranchId]);
+
+  const hasPermission = useCallback(
+    (permission) => {
+      if (Array.isArray(permission)) {
+        return permission.some((item) => permissionSet.has(item));
+      }
+
+      return permissionSet.has(permission);
+    },
+    [permissionSet]
+  );
+
   const value = {
     session,
     account,
@@ -154,6 +178,8 @@ export function AuthProvider({ children }) {
     isAuthenticated: Boolean(session?.access_token),
     isBootstrapping,
     authError,
+    permissions: permissionSet,
+    hasPermission,
     login,
     logout,
     loadBranches,
