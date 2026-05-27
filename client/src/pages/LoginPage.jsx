@@ -1,6 +1,7 @@
 import { KeyRound } from "lucide-react";
 import { useState } from "react";
 
+import ErrorDialog from "../components/ErrorDialog";
 import { SkeletonBlock } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 
@@ -86,8 +87,6 @@ function LoginPage() {
             />
           </label>
 
-          {error ? <p className="form-message is-error">{error}</p> : null}
-
           <button className="primary-button full-width" disabled={isSubmitting} type="submit">
             {isSubmitting ? (
               <SkeletonBlock className="skeleton-button-label" />
@@ -100,6 +99,7 @@ function LoginPage() {
           </button>
         </form>
       </section>
+      <ErrorDialog message={error} onClose={() => setError("")} title="Sign in failed" />
     </main>
   );
 }

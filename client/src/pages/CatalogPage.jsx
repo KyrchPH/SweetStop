@@ -1,10 +1,12 @@
 import { Boxes, EyeOff, Plus, SlidersHorizontal } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
+import ErrorDialog from "../components/ErrorDialog";
 import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { useApiResource } from "../hooks/useApiResource";
 import { catalogApi } from "../services/api";
+import { getErrorMessage } from "../utils/errors";
 import { flattenBranchProducts, formatMoney, formatQuantity } from "../utils/formatters";
 
 function CatalogPage() {
@@ -35,12 +37,19 @@ function CatalogPage() {
     manual_unavailable: false
   });
   const [message, setMessage] = useState("");
+  const [actionError, setActionError] = useState("");
 
   const loadProducts = useCallback(
     () => (activeBranchId ? catalogApi.listProducts(activeBranchId) : Promise.resolve([])),
     [activeBranchId]
   );
-  const { data: products, isLoading, error, reload } = useApiResource(loadProducts, [loadProducts]);
+  const {
+    data: products,
+    isLoading,
+    error,
+    setError,
+    reload
+  } = useApiResource(loadProducts, [loadProducts]);
   const productRows = products ?? [];
   const variantRows = useMemo(() => flattenBranchProducts(productRows), [productRows]);
 
@@ -69,6 +78,7 @@ function CatalogPage() {
   async function createProduct(event) {
     event.preventDefault();
     setMessage("");
+    setActionError("");
     const payload = {
       category: productForm.category,
       name: productForm.name,
@@ -77,27 +87,32 @@ function CatalogPage() {
       is_active: productForm.is_active
     };
 
-    if (productForm.id) {
-      await catalogApi.updateProduct(productForm.id, payload);
-      setMessage("Product updated.");
-    } else {
-      await catalogApi.createProduct(payload);
-      setMessage("Product created.");
-    }
+    try {
+      if (productForm.id) {
+        await catalogApi.updateProduct(productForm.id, payload);
+        setMessage("Product updated.");
+      } else {
+        await catalogApi.createProduct(payload);
+        setMessage("Product created.");
+      }
 
-    setProductForm({ id: "", category: "", name: "", photo_url: "", description: "", is_active: true });
-    await reload();
+      setProductForm({ id: "", category: "", name: "", photo_url: "", description: "", is_active: true });
+      await reload();
+    } catch (incomingError) {
+      setActionError(getErrorMessage(incomingError, "Unable to save product."));
+    }
   }
 
   async function createVariant(event) {
     event.preventDefault();
     setMessage("");
+    setActionError("");
     let tags = {};
 
     try {
       tags = JSON.parse(variantForm.tags || "{}");
     } catch {
-      setMessage("Variant tags must be valid JSON.");
+      setActionError("Variant tags must be valid JSON.");
       return;
     }
 
@@ -109,48 +124,57 @@ function CatalogPage() {
       tags
     };
 
-    if (variantForm.variant_id) {
-      await catalogApi.updateVariant(variantForm.variant_id, payload);
-      setMessage("Variant updated.");
-    } else {
-      await catalogApi.createVariant(variantForm.product_id, {
-        ...payload,
-        default_price: Number(variantForm.default_price)
-      });
-      setMessage("Variant created.");
-    }
+    try {
+      if (variantForm.variant_id) {
+        await catalogApi.updateVariant(variantForm.variant_id, payload);
+        setMessage("Variant updated.");
+      } else {
+        await catalogApi.createVariant(variantForm.product_id, {
+          ...payload,
+          default_price: Number(variantForm.default_price)
+        });
+        setMessage("Variant created.");
+      }
 
-    setVariantForm({
-      variant_id: "",
-      product_id: "",
-      name: "",
-      sku: "",
-      description: "",
-      tags: "{}",
-      default_price: "0",
-      is_active: true
-    });
-    await reload();
+      setVariantForm({
+        variant_id: "",
+        product_id: "",
+        name: "",
+        sku: "",
+        description: "",
+        tags: "{}",
+        default_price: "0",
+        is_active: true
+      });
+      await reload();
+    } catch (incomingError) {
+      setActionError(getErrorMessage(incomingError, "Unable to save variant."));
+    }
   }
 
   async function updateBranchVariant(event) {
     event.preventDefault();
     setMessage("");
+    setActionError("");
 
-    await catalogApi.updateBranchVariantConfig(activeBranchId, configForm.variant_id, {
-      price: Number(configForm.price),
-      is_hidden: configForm.is_hidden,
-      manual_unavailable: configForm.manual_unavailable,
-      is_applicable: true
-    });
+    try {
+      await catalogApi.updateBranchVariantConfig(activeBranchId, configForm.variant_id, {
+        price: Number(configForm.price),
+        is_hidden: configForm.is_hidden,
+        manual_unavailable: configForm.manual_unavailable,
+        is_applicable: true
+      });
 
-    await catalogApi.updateBranchVariantInventory(activeBranchId, configForm.variant_id, {
-      on_hand_qty: Number(configForm.on_hand_qty),
-      reorder_level: 0
-    });
+      await catalogApi.updateBranchVariantInventory(activeBranchId, configForm.variant_id, {
+        on_hand_qty: Number(configForm.on_hand_qty),
+        reorder_level: 0
+      });
 
-    setMessage("Branch variant updated.");
-    await reload();
+      setMessage("Branch variant updated.");
+      await reload();
+    } catch (incomingError) {
+      setActionError(getErrorMessage(incomingError, "Unable to update branch variant."));
+    }
   }
 
   function selectVariant(variant) {
@@ -196,7 +220,14 @@ function CatalogPage() {
         </div>
       </div>
 
-      {error ? <p className="form-message is-error span-grid">{error}</p> : null}
+      <ErrorDialog
+        message={error || actionError}
+        onClose={() => {
+          setError("");
+          setActionError("");
+        }}
+        title="Catalog error"
+      />
       {message ? <p className="form-message is-success span-grid">{message}</p> : null}
 
       <article className="feature-panel catalog-list-panel">

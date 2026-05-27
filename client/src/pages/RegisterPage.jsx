@@ -1,11 +1,13 @@
 import { Minus, Plus, ReceiptText, Search, Trash2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
+import ErrorDialog from "../components/ErrorDialog";
 import ReceiptPreview from "../components/ReceiptPreview";
 import { RegisterSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { useApiResource } from "../hooks/useApiResource";
 import { catalogApi, posApi, shiftsApi } from "../services/api";
+import { getErrorMessage } from "../utils/errors";
 import { flattenBranchProducts, formatMoney, formatQuantity } from "../utils/formatters";
 
 function RegisterPage() {
@@ -15,6 +17,7 @@ function RegisterPage() {
   const [cart, setCart] = useState([]);
   const [cashReceived, setCashReceived] = useState("");
   const [message, setMessage] = useState("");
+  const [actionError, setActionError] = useState("");
   const [receiptPreview, setReceiptPreview] = useState(null);
 
   const loadRegisterData = useCallback(async () => {
@@ -31,7 +34,7 @@ function RegisterPage() {
     return { products, shift, receipts };
   }, [activeBranchId]);
 
-  const { data, isLoading, error, reload } = useApiResource(loadRegisterData, [loadRegisterData]);
+  const { data, isLoading, error, setError, reload } = useApiResource(loadRegisterData, [loadRegisterData]);
 
   const variants = useMemo(() => flattenBranchProducts(data?.products ?? []), [data?.products]);
   const sellableVariants = variants.filter((variant) => variant.availability_status === "AVAILABLE");
@@ -51,6 +54,7 @@ function RegisterPage() {
 
   function addToCart(variant) {
     setMessage("");
+    setActionError("");
     setCart((current) => {
       const existing = current.find((item) => item.variant_id === variant.variant_id);
 
@@ -80,33 +84,44 @@ function RegisterPage() {
 
   async function issueReceipt() {
     setMessage("");
+    setActionError("");
 
     if (cart.length === 0) {
-      setMessage("Add at least one item.");
+      setActionError("Add at least one item.");
       return;
     }
 
-    const receipt = await posApi.createReceipt({
-      branch_id: activeBranchId,
-      shift_id: data?.shift?.id ?? undefined,
-      discount_total: 0,
-      cash_received: cash,
-      items: cart.map((item) => ({
-        variant_id: item.variant_id,
-        quantity: item.quantity
-      }))
-    });
+    try {
+      const receipt = await posApi.createReceipt({
+        branch_id: activeBranchId,
+        shift_id: data?.shift?.id ?? undefined,
+        discount_total: 0,
+        cash_received: cash,
+        items: cart.map((item) => ({
+          variant_id: item.variant_id,
+          quantity: item.quantity
+        }))
+      });
 
-    setCart([]);
-    setCashReceived("");
-    setMessage(`Receipt issued: ${receipt.receipt.receipt_no}`);
-    setReceiptPreview(receipt);
-    await reload();
+      setCart([]);
+      setCashReceived("");
+      setMessage(`Receipt issued: ${receipt.receipt.receipt_no}`);
+      setReceiptPreview(receipt);
+      await reload();
+    } catch (incomingError) {
+      setActionError(getErrorMessage(incomingError, "Unable to issue receipt."));
+    }
   }
 
   async function previewReceipt(receiptId) {
-    const details = await posApi.getReceipt(receiptId);
-    setReceiptPreview(details);
+    setActionError("");
+
+    try {
+      const details = await posApi.getReceipt(receiptId);
+      setReceiptPreview(details);
+    } catch (incomingError) {
+      setActionError(getErrorMessage(incomingError, "Unable to load receipt."));
+    }
   }
 
   return (
@@ -135,7 +150,14 @@ function RegisterPage() {
           </div>
         </div>
 
-        {error ? <p className="form-message is-error">{error}</p> : null}
+        <ErrorDialog
+          message={error || actionError}
+          onClose={() => {
+            setError("");
+            setActionError("");
+          }}
+          title="Register error"
+        />
         {!data?.shift ? <p className="form-message">No open shift. Receipts can still be recorded without shift link.</p> : null}
 
         <div className="menu-grid">
@@ -205,7 +227,7 @@ function RegisterPage() {
           </div>
         </div>
 
-        {message ? <p className={`form-message ${message.includes("Receipt") ? "is-success" : "is-error"}`}>{message}</p> : null}
+        {message ? <p className="form-message is-success">{message}</p> : null}
 
         <button className="primary-button full-width" onClick={issueReceipt} type="button">
           <ReceiptText size={18} />

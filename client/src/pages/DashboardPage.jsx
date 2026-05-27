@@ -1,10 +1,12 @@
 import { ArrowDownLeft, ArrowUpRight, Clock3, ReceiptText, TrendingUp } from "lucide-react";
 import { useCallback, useState } from "react";
 
+import ErrorDialog from "../components/ErrorDialog";
 import { DashboardSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { useApiResource } from "../hooks/useApiResource";
 import { cashApi, posApi, reportsApi, shiftsApi } from "../services/api";
+import { getErrorMessage } from "../utils/errors";
 import {
   formatDateTime,
   formatMoney,
@@ -23,6 +25,7 @@ function DashboardPage() {
   const [openingCash, setOpeningCash] = useState("0");
   const [closingCash, setClosingCash] = useState("");
   const [shiftMessage, setShiftMessage] = useState("");
+  const [actionError, setActionError] = useState("");
   const today = getTodayDateOnly();
 
   const loadDashboard = useCallback(async () => {
@@ -57,7 +60,7 @@ function DashboardPage() {
     return { receipts, movements, reports, shift };
   }, [activeBranchId, today]);
 
-  const { data, isLoading, error, reload } = useApiResource(loadDashboard, [loadDashboard]);
+  const { data, isLoading, error, setError, reload } = useApiResource(loadDashboard, [loadDashboard]);
 
   if (isLoading) {
     return <DashboardSkeleton />;
@@ -79,13 +82,19 @@ function DashboardPage() {
 
   async function openShift() {
     setShiftMessage("");
-    await shiftsApi.open({
-      branch_id: activeBranchId,
-      opening_cash: Number(openingCash),
-      notes: "Opened from client dashboard"
-    });
-    setShiftMessage("Shift opened.");
-    await reload();
+    setActionError("");
+
+    try {
+      await shiftsApi.open({
+        branch_id: activeBranchId,
+        opening_cash: Number(openingCash),
+        notes: "Opened from client dashboard"
+      });
+      setShiftMessage("Shift opened.");
+      await reload();
+    } catch (incomingError) {
+      setActionError(getErrorMessage(incomingError, "Unable to open shift."));
+    }
   }
 
   async function closeShift() {
@@ -94,13 +103,19 @@ function DashboardPage() {
     }
 
     setShiftMessage("");
-    await shiftsApi.close(shift.id, {
-      closing_cash_actual: Number(closingCash),
-      notes: "Closed from client dashboard"
-    });
-    setShiftMessage("Shift closed.");
-    setClosingCash("");
-    await reload();
+    setActionError("");
+
+    try {
+      await shiftsApi.close(shift.id, {
+        closing_cash_actual: Number(closingCash),
+        notes: "Closed from client dashboard"
+      });
+      setShiftMessage("Shift closed.");
+      setClosingCash("");
+      await reload();
+    } catch (incomingError) {
+      setActionError(getErrorMessage(incomingError, "Unable to close shift."));
+    }
   }
 
   const metrics = [
@@ -122,7 +137,14 @@ function DashboardPage() {
         ))}
       </div>
 
-      {error ? <p className="form-message is-error span-grid">{error}</p> : null}
+      <ErrorDialog
+        message={error || actionError}
+        onClose={() => {
+          setError("");
+          setActionError("");
+        }}
+        title="Dashboard error"
+      />
       <article className="feature-panel shift-panel">
         <div className="panel-heading">
           <span className={`status-pill ${shift ? "is-live" : ""}`}>

@@ -95,15 +95,6 @@ select:disabled {
   width: min(100%, 320px);
 }
 
-.login-brand {
-  color: var(--ink);
-  padding: 0;
-}
-
-.login-brand small {
-  color: var(--muted);
-}
-
 .login-form {
   display: grid;
   gap: 14px;
@@ -253,6 +244,11 @@ select:disabled {
   padding: 8px;
 }
 
+.brand-lockup.login-brand {
+  align-items: flex-start;
+  padding: 0;
+}
+
 .brand-mark,
 .operator-avatar {
   display: inline-grid;
@@ -286,6 +282,10 @@ select:disabled {
 
 .login-brand small {
   color: var(--muted-strong);
+}
+
+.login-form .primary-button {
+  margin-top: 8px;
 }
 
 .nav-list {
@@ -653,14 +653,59 @@ select:disabled {
   font-weight: 800;
 }
 
-.form-message.is-error {
+.form-message.is-success {
+  background: #dff4ec;
+  color: var(--teal);
+}
+
+.dialog-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(23, 35, 40, 0.46);
+}
+
+.error-dialog {
+  position: relative;
+  display: grid;
+  gap: 16px;
+  width: min(100%, 390px);
+  padding: 24px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 18px 50px rgba(23, 35, 40, 0.18);
+}
+
+.dialog-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: var(--page);
+}
+
+.dialog-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius);
   background: #ffe1e5;
   color: var(--coral-deep);
 }
 
-.form-message.is-success {
-  background: #dff4ec;
-  color: var(--teal);
+.error-dialog h2 {
+  margin: 4px 40px 0 0;
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.error-dialog p {
+  margin: 10px 0 0;
+  color: var(--muted-strong);
+  line-height: 1.5;
 }
 
 .span-grid {

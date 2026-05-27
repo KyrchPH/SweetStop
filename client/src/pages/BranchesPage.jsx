@@ -1,10 +1,12 @@
 import { Building2, CheckCircle2 } from "lucide-react";
 import { useCallback, useState } from "react";
 
+import ErrorDialog from "../components/ErrorDialog";
 import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { useApiResource } from "../hooks/useApiResource";
 import { branchesApi } from "../services/api";
+import { getErrorMessage } from "../utils/errors";
 import { formatDateTime } from "../utils/formatters";
 
 function BranchesPage() {
@@ -17,8 +19,9 @@ function BranchesPage() {
     status: "ACTIVE"
   });
   const [message, setMessage] = useState("");
+  const [actionError, setActionError] = useState("");
   const load = useCallback(() => branchesApi.list(), []);
-  const { data, isLoading, error, reload } = useApiResource(load, [load]);
+  const { data, isLoading, error, setError, reload } = useApiResource(load, [load]);
   const branches = data ?? [];
   const isEditing = Boolean(form.id);
 
@@ -54,6 +57,7 @@ function BranchesPage() {
   async function saveBranch(event) {
     event.preventDefault();
     setMessage("");
+    setActionError("");
 
     const payload = {
       name: form.name,
@@ -62,15 +66,19 @@ function BranchesPage() {
       status: form.status
     };
 
-    const branch = isEditing
-      ? await branchesApi.update(form.id, payload)
-      : await branchesApi.create(payload);
+    try {
+      const branch = isEditing
+        ? await branchesApi.update(form.id, payload)
+        : await branchesApi.create(payload);
 
-    setActiveBranchId(branch.id);
-    await loadBranches();
-    await reload();
-    resetForm();
-    setMessage(isEditing ? "Branch updated." : "Branch created.");
+      setActiveBranchId(branch.id);
+      await loadBranches();
+      await reload();
+      resetForm();
+      setMessage(isEditing ? "Branch updated." : "Branch created.");
+    } catch (incomingError) {
+      setActionError(getErrorMessage(incomingError, "Unable to save branch."));
+    }
   }
 
   return (
@@ -85,7 +93,14 @@ function BranchesPage() {
         </button>
       </div>
 
-      {error ? <p className="form-message is-error span-grid">{error}</p> : null}
+      <ErrorDialog
+        message={error || actionError}
+        onClose={() => {
+          setError("");
+          setActionError("");
+        }}
+        title="Branch error"
+      />
       {message ? <p className="form-message is-success span-grid">{message}</p> : null}
 
       <article className="feature-panel users-panel">

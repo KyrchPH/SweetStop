@@ -1,10 +1,12 @@
 import { KeyRound, Plus, ShieldCheck } from "lucide-react";
 import { useCallback, useState } from "react";
 
+import ErrorDialog from "../components/ErrorDialog";
 import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { useApiResource } from "../hooks/useApiResource";
 import { accessApi } from "../services/api";
+import { getErrorMessage } from "../utils/errors";
 import { formatDateTime } from "../utils/formatters";
 
 function AccessPage() {
@@ -18,6 +20,7 @@ function AccessPage() {
     access_id: ""
   });
   const [message, setMessage] = useState("");
+  const [actionError, setActionError] = useState("");
   const [branchRoleForm, setBranchRoleForm] = useState({
     account_id: "",
     branch_id: activeBranchId || "",
@@ -38,7 +41,7 @@ function AccessPage() {
     return { accounts, roles, permissions };
   }, [activeBranchId]);
 
-  const { data, isLoading, error, reload } = useApiResource(loadAccessData, [loadAccessData]);
+  const { data, isLoading, error, setError, reload } = useApiResource(loadAccessData, [loadAccessData]);
   const accounts = data?.accounts ?? [];
   const roles = data?.roles ?? [];
   const permissions = data?.permissions ?? [];
@@ -68,6 +71,7 @@ function AccessPage() {
   async function createAccount(event) {
     event.preventDefault();
     setMessage("");
+    setActionError("");
 
     const payload = {
       firstname: form.firstname,
@@ -79,46 +83,68 @@ function AccessPage() {
       status: "ACTIVE"
     };
 
-    await accessApi.createAccount(payload);
-    setForm({
-      firstname: "",
-      lastname: "",
-      username: "",
-      email_address: "",
-      password: "",
-      access_id: ""
-    });
-    setMessage("Account created.");
-    await reload();
+    try {
+      await accessApi.createAccount(payload);
+      setForm({
+        firstname: "",
+        lastname: "",
+        username: "",
+        email_address: "",
+        password: "",
+        access_id: ""
+      });
+      setMessage("Account created.");
+      await reload();
+    } catch (incomingError) {
+      setActionError(getErrorMessage(incomingError, "Unable to create account."));
+    }
   }
 
   async function updateStatus(accountId, status) {
     setMessage("");
-    await accessApi.updateAccountStatus(accountId, { status });
-    setMessage("Account status updated.");
-    await reload();
+    setActionError("");
+
+    try {
+      await accessApi.updateAccountStatus(accountId, { status });
+      setMessage("Account status updated.");
+      await reload();
+    } catch (incomingError) {
+      setActionError(getErrorMessage(incomingError, "Unable to update account status."));
+    }
   }
 
   async function saveBranchRole(event) {
     event.preventDefault();
     setMessage("");
-    await accessApi.upsertBranchRole(branchRoleForm.account_id, {
-      branch_id: branchRoleForm.branch_id,
-      access_id: Number(branchRoleForm.access_id),
-      is_primary: branchRoleForm.is_primary
-    });
-    setMessage("Branch role saved.");
-    await reload();
+    setActionError("");
+
+    try {
+      await accessApi.upsertBranchRole(branchRoleForm.account_id, {
+        branch_id: branchRoleForm.branch_id,
+        access_id: Number(branchRoleForm.access_id),
+        is_primary: branchRoleForm.is_primary
+      });
+      setMessage("Branch role saved.");
+      await reload();
+    } catch (incomingError) {
+      setActionError(getErrorMessage(incomingError, "Unable to save branch role."));
+    }
   }
 
   async function resetPassword(event) {
     event.preventDefault();
     setMessage("");
-    await accessApi.updateAccountPassword(passwordForm.account_id, {
-      password: passwordForm.password
-    });
-    setPasswordForm({ account_id: "", password: "" });
-    setMessage("Password reset.");
+    setActionError("");
+
+    try {
+      await accessApi.updateAccountPassword(passwordForm.account_id, {
+        password: passwordForm.password
+      });
+      setPasswordForm({ account_id: "", password: "" });
+      setMessage("Password reset.");
+    } catch (incomingError) {
+      setActionError(getErrorMessage(incomingError, "Unable to reset password."));
+    }
   }
 
   return (
@@ -133,7 +159,14 @@ function AccessPage() {
         </button>
       </div>
 
-      {error ? <p className="form-message is-error span-grid">{error}</p> : null}
+      <ErrorDialog
+        message={error || actionError}
+        onClose={() => {
+          setError("");
+          setActionError("");
+        }}
+        title="Access error"
+      />
       {message ? <p className="form-message is-success span-grid">{message}</p> : null}
 
       <article className="feature-panel users-panel">

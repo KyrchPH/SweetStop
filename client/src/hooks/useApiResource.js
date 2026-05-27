@@ -26,5 +26,5 @@ export function useApiResource(loader, dependencies = []) {
     reload();
   }, [reload]);
 
-  return { data, setData, isLoading, error, reload };
+  return { data, setData, isLoading, error, setError, reload };
 }

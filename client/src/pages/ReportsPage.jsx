@@ -1,12 +1,14 @@
 import { Download, FileText, RefreshCw } from "lucide-react";
 import { useCallback, useState } from "react";
 
+import ErrorDialog from "../components/ErrorDialog";
 import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { useApiResource } from "../hooks/useApiResource";
 import { uploadReportPdf } from "../services/firebase/storage";
 import { reportsApi } from "../services/api";
 import { buildDailyReportPdfBlob } from "../services/reports/pdf";
+import { getErrorMessage } from "../utils/errors";
 import { formatDateTime, formatMoney, formatQuantity, getTodayDateOnly } from "../utils/formatters";
 
 function ReportsPage() {
@@ -16,6 +18,7 @@ function ReportsPage() {
   const [pdfUrl, setPdfUrl] = useState("");
   const [selectedReportId, setSelectedReportId] = useState("");
   const [message, setMessage] = useState("");
+  const [actionError, setActionError] = useState("");
 
   const loadReports = useCallback(
     () =>
@@ -28,9 +31,20 @@ function ReportsPage() {
         : Promise.resolve([]),
     [activeBranchId, businessDate]
   );
-  const { data: reports, isLoading, error, reload } = useApiResource(loadReports, [loadReports]);
+  const {
+    data: reports,
+    isLoading,
+    error,
+    setError,
+    reload
+  } = useApiResource(loadReports, [loadReports]);
   const selectedReport = reports?.find((report) => report.id === selectedReportId) ?? reports?.[0] ?? null;
-  const { data: reportDetails, isLoading: isReportDetailsLoading } = useApiResource(
+  const {
+    data: reportDetails,
+    isLoading: isReportDetailsLoading,
+    error: reportDetailsError,
+    setError: setReportDetailsError
+  } = useApiResource(
     () => (selectedReport ? reportsApi.getDaily(selectedReport.id) : Promise.resolve(null)),
     [selectedReport?.id]
   );
@@ -43,14 +57,20 @@ function ReportsPage() {
 
   async function generateReport() {
     setMessage("");
-    const report = await reportsApi.generateDaily({
-      branch_id: activeBranchId,
-      business_date: businessDate,
-      actual_cash_end: actualCashEnd === "" ? undefined : Number(actualCashEnd)
-    });
-    setSelectedReportId(report.id);
-    setMessage("Daily report generated.");
-    await reload();
+    setActionError("");
+
+    try {
+      const report = await reportsApi.generateDaily({
+        branch_id: activeBranchId,
+        business_date: businessDate,
+        actual_cash_end: actualCashEnd === "" ? undefined : Number(actualCashEnd)
+      });
+      setSelectedReportId(report.id);
+      setMessage("Daily report generated.");
+      await reload();
+    } catch (incomingError) {
+      setActionError(getErrorMessage(incomingError, "Unable to generate daily report."));
+    }
   }
 
   async function updatePdfUrl() {
@@ -59,32 +79,44 @@ function ReportsPage() {
     }
 
     setMessage("");
-    await reportsApi.updatePdf(selectedReport.id, { pdf_url: pdfUrl });
-    setMessage("PDF link saved.");
-    setPdfUrl("");
-    await reload();
+    setActionError("");
+
+    try {
+      await reportsApi.updatePdf(selectedReport.id, { pdf_url: pdfUrl });
+      setMessage("PDF link saved.");
+      setPdfUrl("");
+      await reload();
+    } catch (incomingError) {
+      setActionError(getErrorMessage(incomingError, "Unable to save PDF link."));
+    }
   }
 
   async function generateAndUploadPdf() {
+    setMessage("");
+    setActionError("");
+
     if (!selectedReport) {
-      setMessage("Generate a report first.");
+      setActionError("Generate a report first.");
       return;
     }
 
-    setMessage("");
-    const blob = await buildDailyReportPdfBlob({
-      report: selectedReport,
-      productSales,
-      cashierSales
-    });
-    const downloadUrl = await uploadReportPdf({
-      blob,
-      reportId: selectedReport.id,
-      businessDate: selectedReport.business_date
-    });
-    await reportsApi.updatePdf(selectedReport.id, { pdf_url: downloadUrl });
-    setMessage("PDF generated and uploaded.");
-    await reload();
+    try {
+      const blob = await buildDailyReportPdfBlob({
+        report: selectedReport,
+        productSales,
+        cashierSales
+      });
+      const downloadUrl = await uploadReportPdf({
+        blob,
+        reportId: selectedReport.id,
+        businessDate: selectedReport.business_date
+      });
+      await reportsApi.updatePdf(selectedReport.id, { pdf_url: downloadUrl });
+      setMessage("PDF generated and uploaded.");
+      await reload();
+    } catch (incomingError) {
+      setActionError(getErrorMessage(incomingError, "Unable to generate or upload PDF."));
+    }
   }
 
   return (
@@ -117,7 +149,15 @@ function ReportsPage() {
         </div>
       </div>
 
-      {error ? <p className="form-message is-error span-grid">{error}</p> : null}
+      <ErrorDialog
+        message={error || reportDetailsError || actionError}
+        onClose={() => {
+          setError("");
+          setReportDetailsError("");
+          setActionError("");
+        }}
+        title="Reports error"
+      />
       {message ? <p className="form-message is-success span-grid">{message}</p> : null}
 
       <article className="feature-panel report-hero">

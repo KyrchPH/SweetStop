@@ -1,10 +1,12 @@
 import { ArrowDownLeft, ArrowUpRight, CheckCircle2, Coins } from "lucide-react";
 import { useCallback, useState } from "react";
 
+import ErrorDialog from "../components/ErrorDialog";
 import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { useApiResource } from "../hooks/useApiResource";
 import { cashApi, shiftsApi } from "../services/api";
+import { getErrorMessage } from "../utils/errors";
 import { formatDateTime, formatMoney, getStartOfTodayIso, getStartOfTomorrowIso } from "../utils/formatters";
 
 function CashLedgerPage() {
@@ -16,6 +18,7 @@ function CashLedgerPage() {
     reason: ""
   });
   const [message, setMessage] = useState("");
+  const [actionError, setActionError] = useState("");
 
   const loadCashData = useCallback(async () => {
     if (!activeBranchId) {
@@ -34,7 +37,7 @@ function CashLedgerPage() {
     return { movements, shift };
   }, [activeBranchId]);
 
-  const { data, isLoading, error, reload } = useApiResource(loadCashData, [loadCashData]);
+  const { data, isLoading, error, setError, reload } = useApiResource(loadCashData, [loadCashData]);
 
   if (isLoading) {
     return <PageSkeleton rows={5} />;
@@ -57,17 +60,23 @@ function CashLedgerPage() {
   async function createMovement(event) {
     event.preventDefault();
     setMessage("");
-    await cashApi.createMovement({
-      branch_id: activeBranchId,
-      shift_id: data?.shift?.id ?? undefined,
-      movement_type: form.movement_type,
-      category: form.category,
-      amount: Number(form.amount),
-      reason: form.reason || undefined
-    });
-    setForm((current) => ({ ...current, category: "", amount: "", reason: "" }));
-    setMessage("Cash movement posted.");
-    await reload();
+    setActionError("");
+
+    try {
+      await cashApi.createMovement({
+        branch_id: activeBranchId,
+        shift_id: data?.shift?.id ?? undefined,
+        movement_type: form.movement_type,
+        category: form.category,
+        amount: Number(form.amount),
+        reason: form.reason || undefined
+      });
+      setForm((current) => ({ ...current, category: "", amount: "", reason: "" }));
+      setMessage("Cash movement posted.");
+      await reload();
+    } catch (incomingError) {
+      setActionError(getErrorMessage(incomingError, "Unable to post cash movement."));
+    }
   }
 
   return (
@@ -138,7 +147,14 @@ function CashLedgerPage() {
             <h2>Posted movements</h2>
           </div>
         </div>
-        {error ? <p className="form-message is-error">{error}</p> : null}
+        <ErrorDialog
+          message={error || actionError}
+          onClose={() => {
+            setError("");
+            setActionError("");
+          }}
+          title="Cash ledger error"
+        />
         <div className="data-list">
           {movements.map((movement) => (
             <div className="data-row" key={movement.id}>
