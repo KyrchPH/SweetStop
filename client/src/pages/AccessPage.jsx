@@ -2,6 +2,7 @@ import { KeyRound, Plus, ShieldCheck } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import ErrorDialog from "../components/ErrorDialog";
+import PasswordField from "../components/PasswordField";
 import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { useApiResource } from "../hooks/useApiResource";
@@ -231,10 +232,14 @@ function AccessPage() {
             <span>Email</span>
             <input name="email_address" onChange={updateForm} required type="email" value={form.email_address} />
           </label>
-          <label>
-            <span>Password</span>
-            <input name="password" onChange={updateForm} required type="password" value={form.password} />
-          </label>
+          <PasswordField
+            autoComplete="new-password"
+            label="Password"
+            name="password"
+            onChange={updateForm}
+            required
+            value={form.password}
+          />
           <label>
             <span>Role</span>
             <select name="access_id" onChange={updateForm} required value={form.access_id}>
@@ -330,16 +335,14 @@ function AccessPage() {
               ))}
             </select>
           </label>
-          <label>
-            <span>New password</span>
-            <input
-              name="password"
-              onChange={updatePasswordForm}
-              required
-              type="password"
-              value={passwordForm.password}
-            />
-          </label>
+          <PasswordField
+            autoComplete="new-password"
+            label="New password"
+            name="password"
+            onChange={updatePasswordForm}
+            required
+            value={passwordForm.password}
+          />
           <button className="primary-button full-width" type="submit">
             Reset password
           </button>

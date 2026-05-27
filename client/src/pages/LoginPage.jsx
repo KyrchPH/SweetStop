@@ -2,6 +2,7 @@ import { KeyRound } from "lucide-react";
 import { useState } from "react";
 
 import ErrorDialog from "../components/ErrorDialog";
+import PasswordField from "../components/PasswordField";
 import { SkeletonBlock } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 
@@ -65,17 +66,14 @@ function LoginPage() {
             />
           </label>
 
-          <label>
-            <span>Password</span>
-            <input
-              autoComplete="current-password"
-              name="password"
-              onChange={updateField}
-              required
-              type="password"
-              value={form.password}
-            />
-          </label>
+          <PasswordField
+            autoComplete="current-password"
+            label="Password"
+            name="password"
+            onChange={updateField}
+            required
+            value={form.password}
+          />
 
           <label>
             <span>Branch ID</span>
