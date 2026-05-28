@@ -42,7 +42,9 @@ function AccessPage() {
     return { accounts, roles, permissions };
   }, [activeBranchId]);
 
-  const { data, isLoading, error, setError, reload } = useApiResource(loadAccessData, [loadAccessData]);
+  const { data, isLoading, error, setError, reload } = useApiResource(loadAccessData, [loadAccessData], {
+    cacheKey: "access:accounts-roles-permissions"
+  });
   const accounts = data?.accounts ?? [];
   const roles = data?.roles ?? [];
   const permissions = data?.permissions ?? [];
@@ -95,7 +97,7 @@ function AccessPage() {
         access_id: ""
       });
       setMessage("Account created.");
-      await reload();
+      await reload({ force: true });
     } catch (incomingError) {
       setActionError(getErrorMessage(incomingError, "Unable to create account."));
     }
@@ -108,7 +110,7 @@ function AccessPage() {
     try {
       await accessApi.updateAccountStatus(accountId, { status });
       setMessage("Account status updated.");
-      await reload();
+      await reload({ force: true });
     } catch (incomingError) {
       setActionError(getErrorMessage(incomingError, "Unable to update account status."));
     }
@@ -126,7 +128,7 @@ function AccessPage() {
         is_primary: branchRoleForm.is_primary
       });
       setMessage("Branch role saved.");
-      await reload();
+      await reload({ force: true });
     } catch (incomingError) {
       setActionError(getErrorMessage(incomingError, "Unable to save branch role."));
     }
@@ -155,7 +157,7 @@ function AccessPage() {
           <span className="section-kicker">Roles</span>
           <h2>User access control</h2>
         </div>
-        <button className="soft-button" onClick={reload} type="button">
+        <button className="soft-button" onClick={() => reload({ force: true })} type="button">
           Refresh
         </button>
       </div>

@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import ErrorDialog from "../components/ErrorDialog";
 import { DashboardSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
-import { useApiResource } from "../hooks/useApiResource";
+import { invalidateApiResourcePrefix, useApiResource } from "../hooks/useApiResource";
 import { cashApi, posApi, reportsApi, shiftsApi } from "../services/api";
 import { getErrorMessage } from "../utils/errors";
 import {
@@ -60,7 +60,9 @@ function DashboardPage() {
     return { receipts, movements, reports, shift };
   }, [activeBranchId, today]);
 
-  const { data, isLoading, error, setError, reload } = useApiResource(loadDashboard, [loadDashboard]);
+  const { data, isLoading, error, setError, reload } = useApiResource(loadDashboard, [loadDashboard], {
+    cacheKey: `dashboard:${activeBranchId || "none"}:${today}`
+  });
 
   if (isLoading) {
     return <DashboardSkeleton />;
@@ -91,7 +93,9 @@ function DashboardPage() {
         notes: "Opened from client dashboard"
       });
       setShiftMessage("Shift opened.");
-      await reload();
+      invalidateApiResourcePrefix(`register:${activeBranchId}`);
+      invalidateApiResourcePrefix(`cash-ledger:${activeBranchId}`);
+      await reload({ force: true });
     } catch (incomingError) {
       setActionError(getErrorMessage(incomingError, "Unable to open shift."));
     }
@@ -112,7 +116,9 @@ function DashboardPage() {
       });
       setShiftMessage("Shift closed.");
       setClosingCash("");
-      await reload();
+      invalidateApiResourcePrefix(`register:${activeBranchId}`);
+      invalidateApiResourcePrefix(`cash-ledger:${activeBranchId}`);
+      await reload({ force: true });
     } catch (incomingError) {
       setActionError(getErrorMessage(incomingError, "Unable to close shift."));
     }

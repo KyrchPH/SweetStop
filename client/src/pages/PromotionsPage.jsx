@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import ErrorDialog from "../components/ErrorDialog";
 import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
-import { useApiResource } from "../hooks/useApiResource";
+import { invalidateApiResourcePrefix, useApiResource } from "../hooks/useApiResource";
 import { promotionsApi } from "../services/api";
 import { getErrorMessage } from "../utils/errors";
 import { formatDateTime, formatMoney } from "../utils/formatters";
@@ -74,7 +74,9 @@ function PromotionsPage() {
     error,
     setError,
     reload
-  } = useApiResource(loadPromotions, [loadPromotions]);
+  } = useApiResource(loadPromotions, [loadPromotions], {
+    cacheKey: `promotions:${activeBranchId || "none"}`
+  });
 
   if (isLoading) {
     return <PageSkeleton rows={5} />;
@@ -131,8 +133,9 @@ function PromotionsPage() {
         setMessage("Promotion created.");
       }
 
+      invalidateApiResourcePrefix(`register:${activeBranchId}`);
       resetForm();
-      await reload();
+      await reload({ force: true });
     } catch (incomingError) {
       setActionError(getErrorMessage(incomingError, "Unable to save promotion."));
     }
@@ -145,7 +148,7 @@ function PromotionsPage() {
           <span className="section-kicker">Promotions</span>
           <h2>Discount rules</h2>
         </div>
-        <button className="soft-button" onClick={reload} type="button">
+        <button className="soft-button" onClick={() => reload({ force: true })} type="button">
           Refresh
         </button>
       </div>

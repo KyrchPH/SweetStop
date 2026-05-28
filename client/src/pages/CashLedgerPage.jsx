@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import ErrorDialog from "../components/ErrorDialog";
 import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
-import { useApiResource } from "../hooks/useApiResource";
+import { invalidateApiResourcePrefix, useApiResource } from "../hooks/useApiResource";
 import { cashApi, shiftsApi } from "../services/api";
 import { getErrorMessage } from "../utils/errors";
 import { formatDateTime, formatMoney, getStartOfTodayIso, getStartOfTomorrowIso } from "../utils/formatters";
@@ -37,7 +37,9 @@ function CashLedgerPage() {
     return { movements, shift };
   }, [activeBranchId]);
 
-  const { data, isLoading, error, setError, reload } = useApiResource(loadCashData, [loadCashData]);
+  const { data, isLoading, error, setError, reload } = useApiResource(loadCashData, [loadCashData], {
+    cacheKey: `cash-ledger:${activeBranchId || "none"}:${getStartOfTodayIso().slice(0, 10)}`
+  });
 
   if (isLoading) {
     return <PageSkeleton rows={5} />;
@@ -73,7 +75,9 @@ function CashLedgerPage() {
       });
       setForm((current) => ({ ...current, category: "", amount: "", reason: "" }));
       setMessage("Cash movement posted.");
-      await reload();
+      invalidateApiResourcePrefix(`dashboard:${activeBranchId}`);
+      invalidateApiResourcePrefix(`reports:${activeBranchId}`);
+      await reload({ force: true });
     } catch (incomingError) {
       setActionError(getErrorMessage(incomingError, "Unable to post cash movement."));
     }

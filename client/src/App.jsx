@@ -5,18 +5,21 @@ import {
   FileText,
   LogOut,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   Search,
-  ShieldCheck,
-  Store
+  ShieldCheck
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import BranchSwitcher from "./components/BranchSwitcher";
 import { SkeletonBlock } from "./components/SkeletonLoader";
 import { useAuth } from "./context/AuthContext";
 import AdminPage from "./pages/AdminPage";
 import CashLedgerPage from "./pages/CashLedgerPage";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
+import OnboardingPage from "./pages/OnboardingPage";
 import RegisterPage from "./pages/RegisterPage";
 import ReportsPage from "./pages/ReportsPage";
 
@@ -68,6 +71,8 @@ const PAGES = [
   }
 ];
 
+const SIDEBAR_COLLAPSED_KEY = "sweetstop.sidebar.collapsed";
+
 function App() {
   const {
     account,
@@ -82,6 +87,9 @@ function App() {
   } = useAuth();
   const [activePageId, setActivePageId] = useState("dashboard");
   const [isNavOpen, setIsNavOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    () => window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true"
+  );
   const visiblePages = useMemo(
     () => PAGES.filter((page) => !page.permission || hasPermission(page.permission)),
     [hasPermission]
@@ -101,6 +109,14 @@ function App() {
   function selectPage(pageId) {
     setActivePageId(pageId);
     setIsNavOpen(false);
+  }
+
+  function toggleSidebar() {
+    setIsSidebarCollapsed((current) => {
+      const next = !current;
+      window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+      return next;
+    });
   }
 
   if (isBootstrapping) {
@@ -125,11 +141,23 @@ function App() {
     return <LoginPage />;
   }
 
+  if (branches.length === 0) {
+    return <OnboardingPage />;
+  }
+
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${isSidebarCollapsed ? "is-sidebar-collapsed" : ""}`}>
       <aside className={`side-nav ${isNavOpen ? "is-open" : ""}`}>
-        <div className="brand-lockup">
+        <div className="brand-lockup sidebar-brand">
           <img className="brand-name-image" src="/name.png" alt="SweetStop" />
+          <button
+            aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="sidebar-toggle"
+            onClick={toggleSidebar}
+            type="button"
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
         </div>
 
         <nav className="nav-list" aria-label="Primary navigation">
@@ -142,6 +170,7 @@ function App() {
                 className={`nav-item ${isActive ? "is-active" : ""}`}
                 key={page.id}
                 onClick={() => selectPage(page.id)}
+                title={isSidebarCollapsed ? page.label : undefined}
                 type="button"
               >
                 <Icon size={20} strokeWidth={2.2} />
@@ -186,22 +215,11 @@ function App() {
             <input aria-label="Search" placeholder="Search products, receipts, users" />
           </label>
 
-          <label className="branch-chip">
-            <Store size={18} />
-            <select
-              aria-label="Active branch"
-              disabled={branches.length === 0}
-              onChange={(event) => setActiveBranchId(event.target.value)}
-              value={activeBranchId}
-            >
-              {branches.length === 0 ? <option value="">No branch</option> : null}
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <BranchSwitcher
+            activeBranchId={activeBranchId}
+            branches={branches}
+            onChange={setActiveBranchId}
+          />
 
           <button className="icon-button" onClick={logout} title="Sign out" type="button">
             <LogOut size={20} />

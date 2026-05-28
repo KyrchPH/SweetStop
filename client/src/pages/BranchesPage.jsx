@@ -21,7 +21,9 @@ function BranchesPage() {
   const [message, setMessage] = useState("");
   const [actionError, setActionError] = useState("");
   const load = useCallback(() => branchesApi.list(), []);
-  const { data, isLoading, error, setError, reload } = useApiResource(load, [load]);
+  const { data, isLoading, error, setError, reload } = useApiResource(load, [load], {
+    cacheKey: "branches:list"
+  });
   const branches = data ?? [];
   const isEditing = Boolean(form.id);
 
@@ -73,7 +75,7 @@ function BranchesPage() {
 
       setActiveBranchId(branch.id);
       await loadBranches();
-      await reload();
+      await reload({ force: true });
       resetForm();
       setMessage(isEditing ? "Branch updated." : "Branch created.");
     } catch (incomingError) {
@@ -88,7 +90,7 @@ function BranchesPage() {
           <span className="section-kicker">Branches</span>
           <h2>Store locations</h2>
         </div>
-        <button className="soft-button" onClick={reload} type="button">
+        <button className="soft-button" onClick={() => reload({ force: true })} type="button">
           Refresh
         </button>
       </div>

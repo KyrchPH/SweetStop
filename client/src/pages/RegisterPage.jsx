@@ -5,7 +5,7 @@ import ErrorDialog from "../components/ErrorDialog";
 import ReceiptPreview from "../components/ReceiptPreview";
 import { RegisterSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
-import { useApiResource } from "../hooks/useApiResource";
+import { invalidateApiResourcePrefix, useApiResource } from "../hooks/useApiResource";
 import { catalogApi, posApi, promotionsApi, shiftsApi } from "../services/api";
 import { getErrorMessage } from "../utils/errors";
 import { flattenBranchProducts, formatMoney, formatQuantity } from "../utils/formatters";
@@ -36,7 +36,9 @@ function RegisterPage() {
     return { products, shift, receipts, promotions };
   }, [activeBranchId]);
 
-  const { data, isLoading, error, setError, reload } = useApiResource(loadRegisterData, [loadRegisterData]);
+  const { data, isLoading, error, setError, reload } = useApiResource(loadRegisterData, [loadRegisterData], {
+    cacheKey: `register:${activeBranchId || "none"}`
+  });
 
   const variants = useMemo(() => flattenBranchProducts(data?.products ?? []), [data?.products]);
   const sellableVariants = variants.filter((variant) => variant.availability_status === "AVAILABLE");
@@ -125,7 +127,10 @@ function RegisterPage() {
       setCashReceived("");
       setMessage(`Receipt issued: ${receipt.receipt.receipt_no}`);
       setReceiptPreview(receipt);
-      await reload();
+      invalidateApiResourcePrefix(`dashboard:${activeBranchId}`);
+      invalidateApiResourcePrefix(`catalog:${activeBranchId}`);
+      invalidateApiResourcePrefix(`reports:${activeBranchId}`);
+      await reload({ force: true });
     } catch (incomingError) {
       setActionError(getErrorMessage(incomingError, "Unable to issue receipt."));
     }

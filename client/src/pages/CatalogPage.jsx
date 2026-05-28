@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import ErrorDialog from "../components/ErrorDialog";
 import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
-import { useApiResource } from "../hooks/useApiResource";
+import { invalidateApiResourcePrefix, useApiResource } from "../hooks/useApiResource";
 import { catalogApi } from "../services/api";
 import { getErrorMessage } from "../utils/errors";
 import { flattenBranchProducts, formatMoney, formatQuantity } from "../utils/formatters";
@@ -49,7 +49,9 @@ function CatalogPage() {
     error,
     setError,
     reload
-  } = useApiResource(loadProducts, [loadProducts]);
+  } = useApiResource(loadProducts, [loadProducts], {
+    cacheKey: `catalog:${activeBranchId || "none"}`
+  });
   const productRows = products ?? [];
   const variantRows = useMemo(() => flattenBranchProducts(productRows), [productRows]);
 
@@ -96,8 +98,9 @@ function CatalogPage() {
         setMessage("Product created.");
       }
 
+      invalidateApiResourcePrefix(`register:${activeBranchId}`);
       setProductForm({ id: "", category: "", name: "", photo_url: "", description: "", is_active: true });
-      await reload();
+      await reload({ force: true });
     } catch (incomingError) {
       setActionError(getErrorMessage(incomingError, "Unable to save product."));
     }
@@ -146,7 +149,8 @@ function CatalogPage() {
         default_price: "0",
         is_active: true
       });
-      await reload();
+      invalidateApiResourcePrefix(`register:${activeBranchId}`);
+      await reload({ force: true });
     } catch (incomingError) {
       setActionError(getErrorMessage(incomingError, "Unable to save variant."));
     }
@@ -171,7 +175,8 @@ function CatalogPage() {
       });
 
       setMessage("Branch variant updated.");
-      await reload();
+      invalidateApiResourcePrefix(`register:${activeBranchId}`);
+      await reload({ force: true });
     } catch (incomingError) {
       setActionError(getErrorMessage(incomingError, "Unable to update branch variant."));
     }
@@ -213,7 +218,7 @@ function CatalogPage() {
           <h2>Products and variants</h2>
         </div>
         <div className="toolbar-actions">
-          <button className="soft-button" onClick={reload} type="button">
+          <button className="soft-button" onClick={() => reload({ force: true })} type="button">
             <SlidersHorizontal size={18} />
             Refresh
           </button>

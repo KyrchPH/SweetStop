@@ -37,7 +37,9 @@ function ReportsPage() {
     error,
     setError,
     reload
-  } = useApiResource(loadReports, [loadReports]);
+  } = useApiResource(loadReports, [loadReports], {
+    cacheKey: `reports:${activeBranchId || "none"}:${businessDate}`
+  });
   const selectedReport = reports?.find((report) => report.id === selectedReportId) ?? reports?.[0] ?? null;
   const {
     data: reportDetails,
@@ -46,7 +48,10 @@ function ReportsPage() {
     setError: setReportDetailsError
   } = useApiResource(
     () => (selectedReport ? reportsApi.getDaily(selectedReport.id) : Promise.resolve(null)),
-    [selectedReport?.id]
+    [selectedReport?.id],
+    {
+      cacheKey: `report-details:${selectedReport?.id || "none"}`
+    }
   );
   const productSales = reportDetails?.product_sales ?? [];
   const cashierSales = reportDetails?.cashier_sales ?? [];
@@ -67,7 +72,7 @@ function ReportsPage() {
       });
       setSelectedReportId(report.id);
       setMessage("Daily report generated.");
-      await reload();
+      await reload({ force: true });
     } catch (incomingError) {
       setActionError(getErrorMessage(incomingError, "Unable to generate daily report."));
     }
@@ -85,7 +90,7 @@ function ReportsPage() {
       await reportsApi.updatePdf(selectedReport.id, { pdf_url: pdfUrl });
       setMessage("PDF link saved.");
       setPdfUrl("");
-      await reload();
+      await reload({ force: true });
     } catch (incomingError) {
       setActionError(getErrorMessage(incomingError, "Unable to save PDF link."));
     }
@@ -113,7 +118,7 @@ function ReportsPage() {
       });
       await reportsApi.updatePdf(selectedReport.id, { pdf_url: downloadUrl });
       setMessage("PDF generated and uploaded.");
-      await reload();
+      await reload({ force: true });
     } catch (incomingError) {
       setActionError(getErrorMessage(incomingError, "Unable to generate or upload PDF."));
     }
