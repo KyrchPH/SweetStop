@@ -434,10 +434,11 @@ export async function loginWithPassword(payload) {
         entity_id,
         details
       )
-      values ($1, 'AUTH_LOGIN_SUCCESS', 'account', $1::text, $2::jsonb)
+      values ($1, 'AUTH_LOGIN_SUCCESS', 'account', $2, $3::jsonb)
       `,
       [
         account.account_id,
+        String(account.account_id),
         JSON.stringify({
           refresh_session_id: session.refresh_session_id,
           branch_id: branchId
@@ -638,10 +639,11 @@ export async function requestPasswordReset(payload) {
         entity_id,
         details
       )
-      values ($1, 'AUTH_PASSWORD_RESET_REQUESTED', 'account', $1::text, $2::jsonb)
+      values ($1, 'AUTH_PASSWORD_RESET_REQUESTED', 'account', $2, $3::jsonb)
       `,
       [
         account.account_id,
+        String(account.account_id),
         JSON.stringify({
           expires_at: expiresAt
         })
@@ -728,10 +730,11 @@ export async function confirmPasswordReset(payload) {
         entity_id,
         details
       )
-      values ($1, 'AUTH_PASSWORD_RESET_CONFIRMED', 'account', $1::text, $2::jsonb)
+      values ($1, 'AUTH_PASSWORD_RESET_CONFIRMED', 'account', $2, $3::jsonb)
       `,
       [
         resetRow.account_id,
+        String(resetRow.account_id),
         JSON.stringify({
           password_reset_token_id: resetRow.id
         })
