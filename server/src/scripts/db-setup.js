@@ -38,7 +38,19 @@ if (!runSchemaOnly) {
   sqlFiles.push("002_seed.sql");
 }
 
-const useSsl = /supabase\.(co|in)/i.test(connectionString);
+function shouldUseSsl(value) {
+  try {
+    const { hostname, searchParams } = new URL(value);
+    return (
+      searchParams.get("sslmode") === "require" ||
+      /(^|\.)supabase\.(co|com|in)$/i.test(hostname)
+    );
+  } catch {
+    return /supabase\.(co|com|in)/i.test(value);
+  }
+}
+
+const useSsl = shouldUseSsl(connectionString);
 const client = new Client({
   connectionString,
   ssl: useSsl ? { rejectUnauthorized: false } : undefined

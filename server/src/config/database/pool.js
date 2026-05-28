@@ -5,7 +5,15 @@ const { Pool } = pg;
 let poolInstance;
 
 function shouldUseSsl(connectionString) {
-  return /supabase\.(co|in)/i.test(connectionString);
+  try {
+    const { hostname, searchParams } = new URL(connectionString);
+    return (
+      searchParams.get("sslmode") === "require" ||
+      /(^|\.)supabase\.(co|com|in)$/i.test(hostname)
+    );
+  } catch {
+    return /supabase\.(co|com|in)/i.test(connectionString);
+  }
 }
 
 export function getDbPool() {
