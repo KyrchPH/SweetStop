@@ -434,7 +434,7 @@ export async function loginWithPassword(payload) {
         entity_id,
         details
       )
-      values ($1, 'AUTH_LOGIN_SUCCESS', 'account', $1, $2::jsonb)
+      values ($1, 'AUTH_LOGIN_SUCCESS', 'account', $1::text, $2::jsonb)
       `,
       [
         account.account_id,
@@ -533,7 +533,7 @@ export async function refreshSession(payload) {
         entity_id,
         details
       )
-      values ($1, 'AUTH_REFRESH_ROTATED', 'auth_refresh_token', $2, $3::jsonb)
+      values ($1, 'AUTH_REFRESH_ROTATED', 'auth_refresh_token', $2::text, $3::jsonb)
       `,
       [
         refreshRow.account_id,
@@ -570,7 +570,7 @@ export async function logoutWithRefreshToken(payload) {
         entity_id,
         details
       )
-      values ($1, 'AUTH_LOGOUT', 'auth_refresh_token', $2, $3::jsonb)
+      values ($1, 'AUTH_LOGOUT', 'auth_refresh_token', $2::text, $3::jsonb)
       `,
       [
         revoked.account_id,
@@ -638,7 +638,7 @@ export async function requestPasswordReset(payload) {
         entity_id,
         details
       )
-      values ($1, 'AUTH_PASSWORD_RESET_REQUESTED', 'account', $1, $2::jsonb)
+      values ($1, 'AUTH_PASSWORD_RESET_REQUESTED', 'account', $1::text, $2::jsonb)
       `,
       [
         account.account_id,
@@ -728,7 +728,7 @@ export async function confirmPasswordReset(payload) {
         entity_id,
         details
       )
-      values ($1, 'AUTH_PASSWORD_RESET_CONFIRMED', 'account', $1, $2::jsonb)
+      values ($1, 'AUTH_PASSWORD_RESET_CONFIRMED', 'account', $1::text, $2::jsonb)
       `,
       [
         resetRow.account_id,
