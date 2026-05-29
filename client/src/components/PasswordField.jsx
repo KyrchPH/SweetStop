@@ -6,6 +6,7 @@ function PasswordField({
   label = "Password",
   name = "password",
   onChange,
+  placeholder = "",
   required = false,
   value
 }) {
@@ -22,6 +23,7 @@ function PasswordField({
           id={inputId}
           name={name}
           onChange={onChange}
+          placeholder={placeholder}
           required={required}
           type={isVisible ? "text" : "password"}
           value={value}

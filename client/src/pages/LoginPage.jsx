@@ -43,7 +43,29 @@ function LoginPage() {
   }
 
   return (
-    <main className="login-screen">
+    <main className="login-screen auth-layout">
+      <aside className="auth-visual-panel">
+        <div className="brand-lockup login-brand">
+          <img className="brand-name-image" src="/name.png" alt="SweetStop" />
+        </div>
+        <div className="auth-illustration" aria-hidden="true">
+          <span className="auth-chart-bar is-short" />
+          <span className="auth-chart-bar is-mid" />
+          <span className="auth-chart-bar is-tall" />
+          <span className="auth-growth-line" />
+          <span className="auth-coin coin-one" />
+          <span className="auth-coin coin-two" />
+        </div>
+        <div className="auth-visual-copy">
+          <h2>Manage sales, inventory and daily operations</h2>
+          <div className="auth-dots">
+            <span />
+            <span className="is-active" />
+            <span />
+          </div>
+        </div>
+      </aside>
+
       <section className="login-panel">
         <div className="brand-lockup login-brand">
           <img className="brand-name-image" src="/name.png" alt="SweetStop" />

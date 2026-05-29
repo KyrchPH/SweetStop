@@ -1,7 +1,8 @@
-import { KeyRound, Plus, ShieldCheck } from "lucide-react";
-import { useCallback, useState } from "react";
+import { KeyRound, MoreHorizontal, Plus, ShieldCheck } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import ErrorDialog from "../components/ErrorDialog";
+import FormDialog from "../components/FormDialog";
 import PasswordField from "../components/PasswordField";
 import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
@@ -12,6 +13,7 @@ import { formatDateTime } from "../utils/formatters";
 
 function AccessPage() {
   const { activeBranchId, branches } = useAuth();
+  const actionMenuRef = useRef(null);
   const [form, setForm] = useState({
     firstname: "",
     lastname: "",
@@ -22,6 +24,10 @@ function AccessPage() {
   });
   const [message, setMessage] = useState("");
   const [actionError, setActionError] = useState("");
+  const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
+  const [isBranchRoleDialogOpen, setIsBranchRoleDialogOpen] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [actionMenuAccountId, setActionMenuAccountId] = useState("");
   const [branchRoleForm, setBranchRoleForm] = useState({
     account_id: "",
     branch_id: activeBranchId || "",
@@ -34,20 +40,46 @@ function AccessPage() {
   });
 
   const loadAccessData = useCallback(async () => {
-    const [accounts, roles, permissions] = await Promise.all([
+    const [accounts, roles] = await Promise.all([
       accessApi.listAccounts(),
-      accessApi.listRoles(),
-      accessApi.listPermissions()
+      accessApi.listRoles()
     ]);
-    return { accounts, roles, permissions };
+    return { accounts, roles };
   }, [activeBranchId]);
 
   const { data, isLoading, error, setError, reload } = useApiResource(loadAccessData, [loadAccessData], {
-    cacheKey: "access:accounts-roles-permissions"
+    cacheKey: "access:accounts-roles"
   });
   const accounts = data?.accounts ?? [];
   const roles = data?.roles ?? [];
-  const permissions = data?.permissions ?? [];
+  const branchRoleAccount = accounts.find((account) => account.id === branchRoleForm.account_id) ?? null;
+  const passwordAccount = accounts.find((account) => account.id === passwordForm.account_id) ?? null;
+
+  useEffect(() => {
+    if (!actionMenuAccountId) {
+      return undefined;
+    }
+
+    function dismissMenu(event) {
+      if (!actionMenuRef.current?.contains(event.target)) {
+        setActionMenuAccountId("");
+      }
+    }
+
+    function dismissOnEscape(event) {
+      if (event.key === "Escape") {
+        setActionMenuAccountId("");
+      }
+    }
+
+    document.addEventListener("mousedown", dismissMenu);
+    document.addEventListener("keydown", dismissOnEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", dismissMenu);
+      document.removeEventListener("keydown", dismissOnEscape);
+    };
+  }, [actionMenuAccountId]);
 
   if (isLoading) {
     return <PageSkeleton rows={6} />;
@@ -71,6 +103,72 @@ function AccessPage() {
     setPasswordForm((current) => ({ ...current, [name]: value }));
   }
 
+  function resetAccountForm() {
+    setForm({
+      firstname: "",
+      lastname: "",
+      username: "",
+      email_address: "",
+      password: "",
+      access_id: ""
+    });
+  }
+
+  function openAccountDialog() {
+    resetAccountForm();
+    setMessage("");
+    setActionError("");
+    setIsAccountDialogOpen(true);
+  }
+
+  function closeAccountDialog() {
+    resetAccountForm();
+    setIsAccountDialogOpen(false);
+  }
+
+  function getAccountName(account) {
+    return `${account?.firstname ?? ""} ${account?.lastname ?? ""}`.trim() || "Selected account";
+  }
+
+  function openBranchRoleDialog(account) {
+    setBranchRoleForm({
+      account_id: account.id,
+      branch_id: activeBranchId || "",
+      access_id: "",
+      is_primary: false
+    });
+    setMessage("");
+    setActionError("");
+    setActionMenuAccountId("");
+    setIsBranchRoleDialogOpen(true);
+  }
+
+  function closeBranchRoleDialog() {
+    setBranchRoleForm({
+      account_id: "",
+      branch_id: activeBranchId || "",
+      access_id: "",
+      is_primary: false
+    });
+    setIsBranchRoleDialogOpen(false);
+  }
+
+  function openPasswordDialog(account) {
+    setPasswordForm({
+      account_id: account.id,
+      password: ""
+    });
+    setMessage("");
+    setActionError("");
+    setActionMenuAccountId("");
+    setIsPasswordDialogOpen(true);
+  }
+
+  function closePasswordDialog() {
+    setPasswordForm({ account_id: "", password: "" });
+    setIsPasswordDialogOpen(false);
+  }
+
   async function createAccount(event) {
     event.preventDefault();
     setMessage("");
@@ -88,14 +186,8 @@ function AccessPage() {
 
     try {
       await accessApi.createAccount(payload);
-      setForm({
-        firstname: "",
-        lastname: "",
-        username: "",
-        email_address: "",
-        password: "",
-        access_id: ""
-      });
+      resetAccountForm();
+      setIsAccountDialogOpen(false);
       setMessage("Account created.");
       await reload({ force: true });
     } catch (incomingError) {
@@ -128,6 +220,7 @@ function AccessPage() {
         is_primary: branchRoleForm.is_primary
       });
       setMessage("Branch role saved.");
+      setIsBranchRoleDialogOpen(false);
       await reload({ force: true });
     } catch (incomingError) {
       setActionError(getErrorMessage(incomingError, "Unable to save branch role."));
@@ -143,7 +236,7 @@ function AccessPage() {
       await accessApi.updateAccountPassword(passwordForm.account_id, {
         password: passwordForm.password
       });
-      setPasswordForm({ account_id: "", password: "" });
+      closePasswordDialog();
       setMessage("Password reset.");
     } catch (incomingError) {
       setActionError(getErrorMessage(incomingError, "Unable to reset password."));
@@ -157,9 +250,15 @@ function AccessPage() {
           <span className="section-kicker">Roles</span>
           <h2>User access control</h2>
         </div>
-        <button className="soft-button" onClick={() => reload({ force: true })} type="button">
-          Refresh
-        </button>
+        <div className="toolbar-actions">
+          <button className="soft-button" onClick={() => reload({ force: true })} type="button">
+            Refresh
+          </button>
+          <button className="primary-button" onClick={openAccountDialog} type="button">
+            <Plus size={18} />
+            Add account
+          </button>
+        </div>
       </div>
 
       <ErrorDialog
@@ -195,13 +294,37 @@ function AccessPage() {
                 {user.status}
               </span>
               <span>{formatDateTime(user.last_active_at)}</span>
-              <div className="row-actions">
-                <button className="soft-button" onClick={() => updateStatus(user.id, "ACTIVE")} type="button">
-                  Activate
+              <div className="account-menu-wrap" ref={actionMenuAccountId === user.id ? actionMenuRef : null}>
+                <button
+                  aria-expanded={actionMenuAccountId === user.id}
+                  aria-haspopup="menu"
+                  aria-label={`Open actions for ${getAccountName(user)}`}
+                  className="icon-button account-menu-trigger"
+                  onClick={() => setActionMenuAccountId((current) => (current === user.id ? "" : user.id))}
+                  type="button"
+                >
+                  <MoreHorizontal size={19} />
                 </button>
-                <button className="soft-button" onClick={() => updateStatus(user.id, "INACTIVE")} type="button">
-                  Deactivate
-                </button>
+                {actionMenuAccountId === user.id ? (
+                  <div className="account-menu" role="menu">
+                    <button onClick={() => openBranchRoleDialog(user)} role="menuitem" type="button">
+                      Assign Branch
+                    </button>
+                    <button onClick={() => openPasswordDialog(user)} role="menuitem" type="button">
+                      Reset Password
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActionMenuAccountId("");
+                        updateStatus(user.id, user.status === "ACTIVE" ? "INACTIVE" : "ACTIVE");
+                      }}
+                      role="menuitem"
+                      type="button"
+                    >
+                      {user.status === "ACTIVE" ? "Deactivate Account" : "Activate Account"}
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
           ))}
@@ -209,36 +332,62 @@ function AccessPage() {
         </div>
       </article>
 
-      <article className="feature-panel permissions-panel">
-        <div className="panel-title-row">
-          <div>
-            <span className="section-kicker">Create</span>
-            <h2>New account</h2>
-          </div>
-          <Plus size={22} />
-        </div>
+      <FormDialog
+        icon={<Plus size={22} />}
+        isOpen={isAccountDialogOpen}
+        kicker="Create"
+        onClose={closeAccountDialog}
+        title="New account"
+        width="wide"
+      >
         <form className="form-grid single-column" onSubmit={createAccount}>
           <label>
             <span>First name</span>
-            <input name="firstname" onChange={updateForm} required value={form.firstname} />
+            <input
+              name="firstname"
+              onChange={updateForm}
+              placeholder="e.g. Archie"
+              required
+              value={form.firstname}
+            />
           </label>
           <label>
             <span>Last name</span>
-            <input name="lastname" onChange={updateForm} required value={form.lastname} />
+            <input
+              name="lastname"
+              onChange={updateForm}
+              placeholder="e.g. Sevillano"
+              required
+              value={form.lastname}
+            />
           </label>
           <label>
             <span>Username</span>
-            <input name="username" onChange={updateForm} required value={form.username} />
+            <input
+              name="username"
+              onChange={updateForm}
+              placeholder="e.g. archiesev"
+              required
+              value={form.username}
+            />
           </label>
           <label>
             <span>Email</span>
-            <input name="email_address" onChange={updateForm} required type="email" value={form.email_address} />
+            <input
+              name="email_address"
+              onChange={updateForm}
+              placeholder="name@example.com"
+              required
+              type="email"
+              value={form.email_address}
+            />
           </label>
           <PasswordField
             autoComplete="new-password"
             label="Password"
             name="password"
             onChange={updateForm}
+            placeholder="Create a secure password"
             required
             value={form.password}
           />
@@ -258,28 +407,23 @@ function AccessPage() {
             Account
           </button>
         </form>
-      </article>
+      </FormDialog>
 
-      <article className="feature-panel permissions-panel">
-        <div className="panel-title-row">
-          <div>
-            <span className="section-kicker">Branch role</span>
-            <h2>Assign branch</h2>
+      <FormDialog
+        icon={<ShieldCheck size={22} />}
+        isOpen={isBranchRoleDialogOpen}
+        kicker="Branch role"
+        onClose={closeBranchRoleDialog}
+        title="Assign branch"
+        width="wide"
+      >
+        {branchRoleAccount ? (
+          <div className="account-context-card">
+            <strong>{getAccountName(branchRoleAccount)}</strong>
+            <span>{branchRoleAccount.email_address}</span>
           </div>
-          <ShieldCheck size={22} />
-        </div>
+        ) : null}
         <form className="form-grid single-column" onSubmit={saveBranchRole}>
-          <label>
-            <span>Account</span>
-            <select name="account_id" onChange={updateBranchRoleForm} required value={branchRoleForm.account_id}>
-              <option value="">Select account</option>
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.firstname} {account.lastname}
-                </option>
-              ))}
-            </select>
-          </label>
           <label>
             <span>Branch</span>
             <select name="branch_id" onChange={updateBranchRoleForm} required value={branchRoleForm.branch_id}>
@@ -315,33 +459,28 @@ function AccessPage() {
             Save branch role
           </button>
         </form>
-      </article>
+      </FormDialog>
 
-      <article className="feature-panel permissions-panel">
-        <div className="panel-title-row">
-          <div>
-            <span className="section-kicker">Security</span>
-            <h2>Reset password</h2>
+      <FormDialog
+        icon={<KeyRound size={22} />}
+        isOpen={isPasswordDialogOpen}
+        kicker="Security"
+        onClose={closePasswordDialog}
+        title="Reset password"
+      >
+        {passwordAccount ? (
+          <div className="account-context-card">
+            <strong>{getAccountName(passwordAccount)}</strong>
+            <span>{passwordAccount.email_address}</span>
           </div>
-          <KeyRound size={22} />
-        </div>
+        ) : null}
         <form className="form-grid single-column" onSubmit={resetPassword}>
-          <label>
-            <span>Account</span>
-            <select name="account_id" onChange={updatePasswordForm} required value={passwordForm.account_id}>
-              <option value="">Select account</option>
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.firstname} {account.lastname}
-                </option>
-              ))}
-            </select>
-          </label>
           <PasswordField
             autoComplete="new-password"
             label="New password"
             name="password"
             onChange={updatePasswordForm}
+            placeholder="Enter a new password"
             required
             value={passwordForm.password}
           />
@@ -349,22 +488,7 @@ function AccessPage() {
             Reset password
           </button>
         </form>
-      </article>
-
-      <article className="feature-panel permissions-panel">
-        <div className="panel-title-row">
-          <div>
-            <span className="section-kicker">Permissions</span>
-            <h2>Action access</h2>
-          </div>
-          <KeyRound size={22} />
-        </div>
-        <div className="permission-cloud">
-          {permissions.map((permission) => (
-            <span key={permission.id}>{permission.permission_key}</span>
-          ))}
-        </div>
-      </article>
+      </FormDialog>
     </section>
   );
 }

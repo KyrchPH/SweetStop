@@ -2,6 +2,7 @@ import { BadgePercent, CalendarClock, Plus } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import ErrorDialog from "../components/ErrorDialog";
+import FormDialog from "../components/FormDialog";
 import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { invalidateApiResourcePrefix, useApiResource } from "../hooks/useApiResource";
@@ -59,6 +60,7 @@ function PromotionsPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [message, setMessage] = useState("");
   const [actionError, setActionError] = useState("");
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const isEditing = Boolean(form.id);
 
   const loadPromotions = useCallback(
@@ -100,10 +102,23 @@ function PromotionsPage() {
       ends_at: toDateTimeLocal(promotion.ends_at),
       status: promotion.status ?? "ACTIVE"
     });
+    setIsFormOpen(true);
   }
 
   function resetForm() {
     setForm(EMPTY_FORM);
+  }
+
+  function openCreateDialog() {
+    resetForm();
+    setMessage("");
+    setActionError("");
+    setIsFormOpen(true);
+  }
+
+  function closeFormDialog() {
+    resetForm();
+    setIsFormOpen(false);
   }
 
   async function savePromotion(event) {
@@ -135,6 +150,7 @@ function PromotionsPage() {
 
       invalidateApiResourcePrefix(`register:${activeBranchId}`);
       resetForm();
+      setIsFormOpen(false);
       await reload({ force: true });
     } catch (incomingError) {
       setActionError(getErrorMessage(incomingError, "Unable to save promotion."));
@@ -148,9 +164,15 @@ function PromotionsPage() {
           <span className="section-kicker">Promotions</span>
           <h2>Discount rules</h2>
         </div>
-        <button className="soft-button" onClick={() => reload({ force: true })} type="button">
-          Refresh
-        </button>
+        <div className="toolbar-actions">
+          <button className="soft-button" onClick={() => reload({ force: true })} type="button">
+            Refresh
+          </button>
+          <button className="primary-button" onClick={openCreateDialog} type="button">
+            <Plus size={18} />
+            Add discount
+          </button>
+        </div>
       </div>
 
       <ErrorDialog
@@ -195,19 +217,18 @@ function PromotionsPage() {
         </div>
       </article>
 
-      <article className="feature-panel permissions-panel">
-        <div className="panel-title-row">
-          <div>
-            <span className="section-kicker">{isEditing ? "Edit" : "Create"}</span>
-            <h2>{isEditing ? "Update promotion" : "New discount"}</h2>
-          </div>
-          <Plus size={22} />
-        </div>
-
+      <FormDialog
+        icon={<BadgePercent size={22} />}
+        isOpen={isFormOpen}
+        kicker={isEditing ? "Edit" : "Create"}
+        onClose={closeFormDialog}
+        title={isEditing ? "Update promotion" : "New discount"}
+        width="wide"
+      >
         <form className="form-grid single-column" onSubmit={savePromotion}>
           <label>
             <span>Name</span>
-            <input name="name" onChange={updateForm} required value={form.name} />
+            <input name="name" onChange={updateForm} placeholder="e.g. Weekend Treat" required value={form.name} />
           </label>
           <label>
             <span>Code</span>
@@ -215,7 +236,7 @@ function PromotionsPage() {
           </label>
           <label>
             <span>Description</span>
-            <textarea name="description" onChange={updateForm} value={form.description} />
+            <textarea name="description" onChange={updateForm} placeholder="Explain when this discount applies" value={form.description} />
           </label>
           <label>
             <span>Discount type</span>
@@ -230,6 +251,7 @@ function PromotionsPage() {
               min="0"
               name="discount_value"
               onChange={updateForm}
+              placeholder="10.00"
               required
               step="0.01"
               type="number"
@@ -242,6 +264,7 @@ function PromotionsPage() {
               min="0"
               name="min_subtotal"
               onChange={updateForm}
+              placeholder="0.00"
               step="0.01"
               type="number"
               value={form.min_subtotal}
@@ -267,12 +290,12 @@ function PromotionsPage() {
             Save promotion
           </button>
           {isEditing ? (
-            <button className="soft-button full-width" onClick={resetForm} type="button">
+            <button className="soft-button full-width" onClick={closeFormDialog} type="button">
               Cancel edit
             </button>
           ) : null}
         </form>
-      </article>
+      </FormDialog>
 
       <article className="feature-panel permissions-panel">
         <div className="panel-title-row">

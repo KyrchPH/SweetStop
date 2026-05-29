@@ -1,7 +1,8 @@
-import { Building2, CheckCircle2 } from "lucide-react";
+import { Building2, CheckCircle2, Plus } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import ErrorDialog from "../components/ErrorDialog";
+import FormDialog from "../components/FormDialog";
 import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { useApiResource } from "../hooks/useApiResource";
@@ -18,6 +19,7 @@ function BranchesPage() {
     timezone: "Asia/Manila",
     status: "ACTIVE"
   });
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [actionError, setActionError] = useState("");
   const load = useCallback(() => branchesApi.list(), []);
@@ -44,6 +46,7 @@ function BranchesPage() {
       timezone: branch.timezone ?? "Asia/Manila",
       status: branch.status ?? "ACTIVE"
     });
+    setIsFormOpen(true);
   }
 
   function resetForm() {
@@ -56,10 +59,23 @@ function BranchesPage() {
     });
   }
 
+  function openCreateDialog() {
+    resetForm();
+    setMessage("");
+    setActionError("");
+    setIsFormOpen(true);
+  }
+
+  function closeFormDialog() {
+    resetForm();
+    setIsFormOpen(false);
+  }
+
   async function saveBranch(event) {
     event.preventDefault();
     setMessage("");
     setActionError("");
+    const wasEditing = isEditing;
 
     const payload = {
       name: form.name,
@@ -77,7 +93,8 @@ function BranchesPage() {
       await loadBranches();
       await reload({ force: true });
       resetForm();
-      setMessage(isEditing ? "Branch updated." : "Branch created.");
+      setIsFormOpen(false);
+      setMessage(wasEditing ? "Branch updated." : "Branch created.");
     } catch (incomingError) {
       setActionError(getErrorMessage(incomingError, "Unable to save branch."));
     }
@@ -90,9 +107,15 @@ function BranchesPage() {
           <span className="section-kicker">Branches</span>
           <h2>Store locations</h2>
         </div>
-        <button className="soft-button" onClick={() => reload({ force: true })} type="button">
-          Refresh
-        </button>
+        <div className="toolbar-actions">
+          <button className="soft-button" onClick={() => reload({ force: true })} type="button">
+            Refresh
+          </button>
+          <button className="primary-button" onClick={openCreateDialog} type="button">
+            <Plus size={18} />
+            Add branch
+          </button>
+        </div>
       </div>
 
       <ErrorDialog
@@ -127,26 +150,25 @@ function BranchesPage() {
         </div>
       </article>
 
-      <article className="feature-panel permissions-panel">
-        <div className="panel-title-row">
-          <div>
-            <span className="section-kicker">{isEditing ? "Edit" : "Create"}</span>
-            <h2>{isEditing ? "Update branch" : "New branch"}</h2>
-          </div>
-          <CheckCircle2 size={22} />
-        </div>
+      <FormDialog
+        icon={<CheckCircle2 size={22} />}
+        isOpen={isFormOpen}
+        kicker={isEditing ? "Edit" : "Create"}
+        onClose={closeFormDialog}
+        title={isEditing ? "Update branch" : "New branch"}
+      >
         <form className="form-grid single-column" onSubmit={saveBranch}>
           <label>
             <span>Name</span>
-            <input name="name" onChange={updateForm} required value={form.name} />
+            <input name="name" onChange={updateForm} placeholder="e.g. Main Branch" required value={form.name} />
           </label>
           <label>
             <span>Address</span>
-            <input name="address" onChange={updateForm} value={form.address} />
+            <input name="address" onChange={updateForm} placeholder="Street, city, province" value={form.address} />
           </label>
           <label>
             <span>Timezone</span>
-            <input name="timezone" onChange={updateForm} required value={form.timezone} />
+            <input name="timezone" onChange={updateForm} placeholder="Asia/Manila" required value={form.timezone} />
           </label>
           <label>
             <span>Status</span>
@@ -159,12 +181,12 @@ function BranchesPage() {
             Save branch
           </button>
           {isEditing ? (
-            <button className="soft-button full-width" onClick={resetForm} type="button">
+            <button className="soft-button full-width" onClick={closeFormDialog} type="button">
               Cancel edit
             </button>
           ) : null}
         </form>
-      </article>
+      </FormDialog>
     </section>
   );
 }

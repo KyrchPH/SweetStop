@@ -1,4 +1,4 @@
-import { BadgePercent, Minus, Plus, ReceiptText, Search, Trash2 } from "lucide-react";
+import { BadgePercent, Minus, Plus, ReceiptText, RefreshCw, Search, ShoppingBag, Trash2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 import ErrorDialog from "../components/ErrorDialog";
@@ -14,6 +14,7 @@ function RegisterPage() {
   const { activeBranchId } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [category, setCategory] = useState("All");
+  const [posView, setPosView] = useState("menu");
   const [cart, setCart] = useState([]);
   const [selectedPromotionId, setSelectedPromotionId] = useState("");
   const [cashReceived, setCashReceived] = useState("");
@@ -43,6 +44,17 @@ function RegisterPage() {
   const variants = useMemo(() => flattenBranchProducts(data?.products ?? []), [data?.products]);
   const sellableVariants = variants.filter((variant) => variant.availability_status === "AVAILABLE");
   const categories = ["All", ...new Set(sellableVariants.map((variant) => variant.category))];
+  const categoryCounts = useMemo(
+    () =>
+      sellableVariants.reduce(
+        (counts, variant) => ({
+          ...counts,
+          [variant.category]: (counts[variant.category] ?? 0) + 1
+        }),
+        { All: sellableVariants.length }
+      ),
+    [sellableVariants]
+  );
   const visibleVariants = sellableVariants.filter((variant) => {
     const matchesCategory = category === "All" || variant.category === category;
     const text = `${variant.product_name} ${variant.variant_name} ${variant.sku ?? ""}`.toLowerCase();
@@ -60,6 +72,7 @@ function RegisterPage() {
   const total = Math.max(0, subtotal - discount);
   const cash = Number(cashReceived || 0);
   const change = Math.max(0, cash - total);
+  const cartQuantity = cart.reduce((totalQuantity, item) => totalQuantity + item.quantity, 0);
 
   if (isLoading) {
     return <RegisterSkeleton />;
@@ -148,30 +161,80 @@ function RegisterPage() {
   }
 
   return (
-    <section className="register-layout">
-      <div className="register-main">
-        <div className="register-toolbar">
-          <label className="inline-search">
-            <Search size={18} />
-            <input
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Find item or scan code"
-              value={searchTerm}
-            />
-          </label>
-          <div className="category-tabs">
-            {categories.map((item) => (
+    <section className={`register-layout smartpos-register ${posView === "checkout" ? "is-checkout-view" : ""}`}>
+      <div className="register-main smartpos-main">
+        <div className="pos-breadcrumb">
+          <span>POS</span>
+          <span>/</span>
+          <strong>{posView === "checkout" ? "Checkout" : category === "All" ? "Menu" : category}</strong>
+        </div>
+
+        <div className="pos-menu-heading">
+          <div>
+            <span className="section-kicker">{posView === "checkout" ? "Checkout" : "SweetStop menu"}</span>
+            <h2>
+              {posView === "checkout" ? "Checkout" : category === "All" ? "Desserts" : category}
+              <span className="pos-heading-icon" aria-hidden="true">
+                <ShoppingBag size={26} />
+              </span>
+            </h2>
+            <p>
+              {posView === "checkout"
+                ? `${cartQuantity} item${cartQuantity === 1 ? "" : "s"} in the cart.`
+                : `${visibleVariants.length} sellable item${visibleVariants.length === 1 ? "" : "s"} ready for checkout.`}
+            </p>
+          </div>
+          <div className="pos-heading-actions">
+            <div className="pos-view-tabs" aria-label="POS views">
+              <button className={posView === "menu" ? "is-active" : ""} onClick={() => setPosView("menu")} type="button">
+                Menu
+              </button>
               <button
-                className={item === category ? "is-active" : ""}
-                key={item}
-                onClick={() => setCategory(item)}
+                className={posView === "checkout" ? "is-active" : ""}
+                onClick={() => setPosView("checkout")}
                 type="button"
               >
-                {item}
+                Checkout
+                <small>{cartQuantity}</small>
               </button>
-            ))}
+            </div>
+            <button
+              aria-label="Refresh POS data"
+              className="icon-button"
+              onClick={() => reload({ force: true })}
+              title="Refresh POS data"
+              type="button"
+            >
+              <RefreshCw size={18} />
+            </button>
           </div>
         </div>
+
+        {posView === "menu" ? (
+          <div className="register-toolbar pos-toolbar">
+            <label className="inline-search pos-search">
+              <Search size={19} />
+              <input
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search menu or scan SKU"
+                value={searchTerm}
+              />
+            </label>
+            <div className="category-tabs pos-category-tabs">
+              {categories.map((item) => (
+                <button
+                  className={item === category ? "is-active" : ""}
+                  key={item}
+                  onClick={() => setCategory(item)}
+                  type="button"
+                >
+                  <span>{item}</span>
+                  <small>{categoryCounts[item] ?? 0}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <ErrorDialog
           message={error || actionError}
@@ -183,149 +246,208 @@ function RegisterPage() {
         />
         {!data?.shift ? <p className="form-message">No open shift. Receipts can still be recorded without shift link.</p> : null}
 
-        <div className="menu-grid">
-          {visibleVariants.map((item) => (
-            <button className="menu-tile" key={item.variant_id} onClick={() => addToCart(item)} type="button">
-              <span>{item.variant_name}</span>
-              <strong>{item.product_name}</strong>
-              <small>
-                {formatMoney(item.price)} / {formatQuantity(item.on_hand_qty)} left
-              </small>
-            </button>
-          ))}
-          {visibleVariants.length === 0 && !isLoading ? <p className="empty-state">No sellable variants found.</p> : null}
-        </div>
-      </div>
-
-      <aside className="checkout-panel">
-        <div className="panel-title-row">
-          <div>
-            <span className="section-kicker">Current order</span>
-            <h2>Receipt draft</h2>
-          </div>
-          <ReceiptText size={22} />
-        </div>
-
-        <div className="cart-list">
-          {cart.map((item) => (
-            <div className="cart-row" key={item.variant_id}>
-              <div>
-                <strong>{item.product_name}</strong>
-                <span>{formatMoney(item.price * item.quantity)}</span>
-              </div>
-              <div className="qty-controls">
-                <button aria-label="Decrease quantity" onClick={() => adjustQuantity(item.variant_id, -1)} type="button">
-                  <Minus size={16} />
-                </button>
-                <span>{item.quantity}</span>
-                <button aria-label="Increase quantity" onClick={() => adjustQuantity(item.variant_id, 1)} type="button">
-                  <Plus size={16} />
-                </button>
-                <button aria-label="Remove item" onClick={() => adjustQuantity(item.variant_id, -999)} type="button">
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-          ))}
-          {cart.length === 0 ? <p className="empty-state">No items in the receipt.</p> : null}
-        </div>
-
-        <div className="promotion-picker">
-          <div className="panel-title-row">
-            <div>
-              <span className="section-kicker">Discounts</span>
-              <strong>Promotions</strong>
-            </div>
-            <BadgePercent size={20} />
-          </div>
-          <button
-            className={`promotion-option ${selectedPromotionId === "" ? "is-active" : ""}`}
-            onClick={() => setSelectedPromotionId("")}
-            type="button"
-          >
-            <span>No discount</span>
-            <strong>{formatMoney(0)}</strong>
-          </button>
-          {activePromotions.map((promotion) => {
-            const meetsMinimum = subtotal >= Number(promotion.min_subtotal ?? 0);
-            const previewDiscount = meetsMinimum
-              ? calculatePromotionDiscount(promotion, subtotal)
-              : 0;
-
-            return (
+        {posView === "menu" ? (
+          <div className="menu-grid pos-menu-grid">
+            {visibleVariants.map((item) => (
               <button
-                className={`promotion-option ${selectedPromotionId === promotion.id ? "is-active" : ""}`}
-                disabled={!meetsMinimum}
-                key={promotion.id}
-                onClick={() => setSelectedPromotionId(promotion.id)}
+                className="menu-tile pos-product-card"
+                key={item.variant_id}
+                onClick={() => addToCart(item)}
                 type="button"
               >
-                <span>
-                  {promotion.name}
-                  {promotion.code ? ` / ${promotion.code}` : ""}
+                <span className="pos-product-image">
+                  {item.photo_url ? (
+                    <img alt={item.product_name} src={item.photo_url} />
+                  ) : (
+                    <span className="pos-product-placeholder">{getProductInitials(item.product_name)}</span>
+                  )}
                 </span>
-                <strong>
-                  {meetsMinimum
-                    ? `-${formatMoney(previewDiscount)}`
-                    : `Min. ${formatMoney(promotion.min_subtotal)}`}
-                </strong>
+                <span className="pos-product-category">{item.category}</span>
+                <strong>{item.product_name}</strong>
+                <span className="pos-product-variant">{item.variant_name}</span>
+                <small className="pos-product-footer">
+                  <span>{formatQuantity(item.on_hand_qty)} left</span>
+                  <strong>{formatMoney(item.price)}</strong>
+                </small>
               </button>
-            );
-          })}
-          {activePromotions.length === 0 ? (
-            <p className="empty-state">No active promotions for this branch.</p>
-          ) : null}
-        </div>
+            ))}
+            {visibleVariants.length === 0 && !isLoading ? (
+              <p className="empty-state">No sellable variants found.</p>
+            ) : null}
+          </div>
+        ) : (
+          <div className="pos-checkout-grid">
+            <article className="feature-panel pos-cart-section">
+              <div className="panel-title-row">
+                <div>
+                  <span className="section-kicker">Cart</span>
+                  <h2>Items to checkout</h2>
+                </div>
+                <span className="checkout-icon">
+                  <ShoppingBag size={22} />
+                </span>
+              </div>
 
-        <div className="payment-box">
-          <div>
-            <span>Subtotal</span>
-            <strong>{formatMoney(subtotal)}</strong>
-          </div>
-          <div>
-            <span>Discount</span>
-            <strong>-{formatMoney(discount)}</strong>
-          </div>
-          <div>
-            <span>Total</span>
-            <strong>{formatMoney(total)}</strong>
-          </div>
-          <div>
-            <span>Cash received</span>
-            <input
-              aria-label="Cash received"
-              onChange={(event) => setCashReceived(event.target.value)}
-              type="number"
-              value={cashReceived}
-            />
-          </div>
-          <div className="change-row">
-            <span>Change</span>
-            <strong>{formatMoney(change)}</strong>
-          </div>
-        </div>
+              <div className="cart-list pos-cart-list">
+                {cart.map((item) => (
+                  <div className="cart-row pos-cart-row" key={item.variant_id}>
+                    <span className="pos-cart-thumb">{getProductInitials(item.product_name)}</span>
+                    <div className="pos-cart-main">
+                      <strong>{item.product_name}</strong>
+                      <span>{item.variant_name}</span>
+                    </div>
+                    <strong className="pos-cart-line-total">{formatMoney(item.price * item.quantity)}</strong>
+                    <div className="qty-controls">
+                      <button
+                        aria-label="Decrease quantity"
+                        onClick={() => adjustQuantity(item.variant_id, -1)}
+                        type="button"
+                      >
+                        <Minus size={16} />
+                      </button>
+                      <span>{item.quantity}</span>
+                      <button
+                        aria-label="Increase quantity"
+                        onClick={() => adjustQuantity(item.variant_id, 1)}
+                        type="button"
+                      >
+                        <Plus size={16} />
+                      </button>
+                      <button
+                        aria-label="Remove item"
+                        onClick={() => adjustQuantity(item.variant_id, -999)}
+                        type="button"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {cart.length === 0 ? <p className="empty-state">No items in the cart.</p> : null}
+              </div>
+            </article>
 
-        {message ? <p className="form-message is-success">{message}</p> : null}
+            <aside className="checkout-panel smartpos-checkout">
+              <div className="panel-title-row checkout-heading">
+                <div>
+                  <span className="section-kicker">Current order</span>
+                  <h2>Order summary</h2>
+                </div>
+                <span className="checkout-icon">
+                  <ReceiptText size={22} />
+                </span>
+              </div>
 
-        <button className="primary-button full-width" onClick={issueReceipt} type="button">
-          <ReceiptText size={18} />
-          Issue receipt
-        </button>
+              <div className="promotion-picker">
+                <div className="panel-title-row">
+                  <div>
+                    <span className="section-kicker">Discounts</span>
+                    <strong>Promotions</strong>
+                  </div>
+                  <BadgePercent size={20} />
+                </div>
+                <button
+                  className={`promotion-option ${selectedPromotionId === "" ? "is-active" : ""}`}
+                  onClick={() => setSelectedPromotionId("")}
+                  type="button"
+                >
+                  <span>No discount</span>
+                  <strong>{formatMoney(0)}</strong>
+                </button>
+                {activePromotions.map((promotion) => {
+                  const meetsMinimum = subtotal >= Number(promotion.min_subtotal ?? 0);
+                  const previewDiscount = meetsMinimum
+                    ? calculatePromotionDiscount(promotion, subtotal)
+                    : 0;
 
-        <div className="recent-receipts">
-          <span className="section-kicker">Reprint</span>
-          {(data?.receipts ?? []).slice(0, 5).map((receipt) => (
-            <button key={receipt.id} onClick={() => previewReceipt(receipt.id)} type="button">
-              <strong>{receipt.receipt_no}</strong>
-              <span>{formatMoney(receipt.total_amount)}</span>
-            </button>
-          ))}
-        </div>
-      </aside>
+                  return (
+                    <button
+                      className={`promotion-option ${selectedPromotionId === promotion.id ? "is-active" : ""}`}
+                      disabled={!meetsMinimum}
+                      key={promotion.id}
+                      onClick={() => setSelectedPromotionId(promotion.id)}
+                      type="button"
+                    >
+                      <span>
+                        {promotion.name}
+                        {promotion.code ? ` / ${promotion.code}` : ""}
+                      </span>
+                      <strong>
+                        {meetsMinimum
+                          ? `-${formatMoney(previewDiscount)}`
+                          : `Min. ${formatMoney(promotion.min_subtotal)}`}
+                      </strong>
+                    </button>
+                  );
+                })}
+                {activePromotions.length === 0 ? (
+                  <p className="empty-state">No active promotions for this branch.</p>
+                ) : null}
+              </div>
+
+              <div className="payment-box">
+                <div>
+                  <span>Subtotal</span>
+                  <strong>{formatMoney(subtotal)}</strong>
+                </div>
+                <div>
+                  <span>Discount</span>
+                  <strong>-{formatMoney(discount)}</strong>
+                </div>
+                <div>
+                  <span>Total</span>
+                  <strong>{formatMoney(total)}</strong>
+                </div>
+                <div>
+                  <span>Cash received</span>
+                  <input
+                    aria-label="Cash received"
+                    onChange={(event) => setCashReceived(event.target.value)}
+                    placeholder="0.00"
+                    type="number"
+                    value={cashReceived}
+                  />
+                </div>
+                <div className="change-row">
+                  <span>Change</span>
+                  <strong>{formatMoney(change)}</strong>
+                </div>
+              </div>
+
+              {message ? <p className="form-message is-success">{message}</p> : null}
+
+              <button className="primary-button full-width" onClick={issueReceipt} type="button">
+                <ReceiptText size={18} />
+                Issue receipt
+              </button>
+
+              <div className="recent-receipts">
+                <span className="section-kicker">Reprint</span>
+                {(data?.receipts ?? []).slice(0, 5).map((receipt) => (
+                  <button key={receipt.id} onClick={() => previewReceipt(receipt.id)} type="button">
+                    <strong>{receipt.receipt_no}</strong>
+                    <span>{formatMoney(receipt.total_amount)}</span>
+                  </button>
+                ))}
+              </div>
+            </aside>
+          </div>
+        )}
+      </div>
 
       <ReceiptPreview receiptDetails={receiptPreview} onClose={() => setReceiptPreview(null)} />
     </section>
   );
+}
+
+function getProductInitials(name = "") {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase() || "SS";
 }
 
 function calculatePromotionDiscount(promotion, subtotal) {
