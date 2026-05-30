@@ -151,6 +151,19 @@ export async function listProducts(branchId) {
   return Array.from(productsMap.values());
 }
 
+export async function listCategories() {
+  const result = await query(
+    `
+    select distinct trim(category) as category
+    from public.products
+    where nullif(trim(category), '') is not null
+    order by category asc
+    `
+  );
+
+  return result.rows.map((row) => row.category);
+}
+
 export async function createProduct(payload) {
   const result = await query(
     `

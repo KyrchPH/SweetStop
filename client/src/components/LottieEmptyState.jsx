@@ -1,6 +1,8 @@
-import Lottie from "lottie-react";
+import LottieModule from "lottie-react";
 
 import emptyAnimation from "../assets/empty.json";
+
+const Lottie = LottieModule?.default ?? LottieModule;
 
 function LottieEmptyState({
   title = "Nothing here yet",
@@ -8,12 +10,15 @@ function LottieEmptyState({
 }) {
   return (
     <div className="lottie-empty-state">
-      <Lottie
-        animationData={emptyAnimation}
-        autoplay
-        className="lottie-empty-animation"
-        loop
-      />
+      <div className="lottie-empty-art" aria-hidden="true">
+        <Lottie
+          animationData={emptyAnimation}
+          autoplay
+          className="lottie-empty-animation"
+          loop
+          rendererSettings={{ preserveAspectRatio: "xMidYMid meet" }}
+        />
+      </div>
       <div className="lottie-empty-copy">
         <strong>{title}</strong>
         <span>{message}</span>

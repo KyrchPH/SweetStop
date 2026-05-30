@@ -1,5 +1,5 @@
 import { Boxes, EyeOff, Plus, SlidersHorizontal } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 
 import ErrorDialog from "../components/ErrorDialog";
 import FormDialog from "../components/FormDialog";
@@ -33,6 +33,7 @@ const EMPTY_VARIANT_FORM = {
 
 function CatalogPage() {
   const { activeBranchId } = useAuth();
+  const categoryListId = useId();
   const [productForm, setProductForm] = useState(EMPTY_PRODUCT_FORM);
   const [variantForm, setVariantForm] = useState(EMPTY_VARIANT_FORM);
   const [configForm, setConfigForm] = useState({
@@ -47,12 +48,17 @@ function CatalogPage() {
   const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
   const [isVariantDialogOpen, setIsVariantDialogOpen] = useState(false);
 
-  const loadProducts = useCallback(
-    () => (activeBranchId ? catalogApi.listProducts(activeBranchId) : Promise.resolve([])),
-    [activeBranchId]
-  );
+  const loadProducts = useCallback(async () => {
+    const [branchProducts, allProducts, categories] = await Promise.all([
+      activeBranchId ? catalogApi.listProducts(activeBranchId) : Promise.resolve([]),
+      catalogApi.listProducts(),
+      catalogApi.listCategories()
+    ]);
+
+    return { branchProducts, allProducts, categories };
+  }, [activeBranchId]);
   const {
-    data: products,
+    data: catalogData,
     isLoading,
     error,
     setError,
@@ -60,8 +66,10 @@ function CatalogPage() {
   } = useApiResource(loadProducts, [loadProducts], {
     cacheKey: `catalog:${activeBranchId || "none"}`
   });
-  const productRows = products ?? [];
-  const variantRows = useMemo(() => flattenBranchProducts(productRows), [productRows]);
+  const branchProductRows = catalogData?.branchProducts ?? [];
+  const productRows = catalogData?.allProducts ?? branchProductRows;
+  const variantRows = useMemo(() => flattenBranchProducts(branchProductRows), [branchProductRows]);
+  const categoryOptions = catalogData?.categories ?? [];
 
   if (isLoading) {
     return <PageSkeleton rows={6} />;
@@ -353,7 +361,19 @@ function CatalogPage() {
           </label>
           <label>
             <span>Category</span>
-            <input name="category" onChange={updateProductForm} placeholder="e.g. Cakes" required value={productForm.category} />
+            <input
+              list={categoryListId}
+              name="category"
+              onChange={updateProductForm}
+              placeholder="Choose or type a category"
+              required
+              value={productForm.category}
+            />
+            <datalist id={categoryListId}>
+              {categoryOptions.map((categoryOption) => (
+                <option key={categoryOption} value={categoryOption} />
+              ))}
+            </datalist>
           </label>
           <label>
             <span>Photo URL</span>

@@ -3,6 +3,7 @@ import { Router } from "express";
 import { authenticate } from "../middlewares/authenticate.js";
 import { authorize } from "../middlewares/authorize.js";
 import {
+  listCategories,
   createProduct,
   createVariant,
   listProducts,
@@ -17,6 +18,7 @@ const router = Router();
 
 router.use(authenticate);
 
+router.get("/categories", authorize("product.view"), asyncHandler(listCategories));
 router.get("/products", authorize("product.view"), asyncHandler(listProducts));
 router.post("/products", authorize("product.create"), asyncHandler(createProduct));
 router.patch("/products/:productId", authorize("product.update"), asyncHandler(updateProduct));

@@ -19,6 +19,11 @@ export async function listProducts(req, res) {
   res.status(200).json({ ok: true, data });
 }
 
+export async function listCategories(req, res) {
+  const data = await catalogService.listCategories();
+  res.status(200).json({ ok: true, data });
+}
+
 export async function createProduct(req, res) {
   const { category, name, photo_url, description, is_active } = req.body ?? {};
 

@@ -171,10 +171,9 @@ function BranchesPage() {
         </div>
         <div className="data-list">
           {branches.map((branch) => (
-            <button className="data-row action-row" key={branch.id} onClick={() => viewBranch(branch)} type="button">
+            <button className="data-row branch-row action-row" key={branch.id} onClick={() => viewBranch(branch)} type="button">
               <strong>{branch.name}</strong>
               <span>{branch.status}</span>
-              <span>{branch.timezone}</span>
               <span>{branch.address || "No address"}</span>
               <span>{formatDateTime(branch.updated_at)}</span>
             </button>

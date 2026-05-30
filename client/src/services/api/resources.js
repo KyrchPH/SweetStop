@@ -13,6 +13,9 @@ export const branchesApi = {
 };
 
 export const catalogApi = {
+  listCategories() {
+    return apiClient.get("/catalog/categories");
+  },
   listProducts(branchId) {
     return apiClient.get("/catalog/products", {
       query: { branch_id: branchId }
