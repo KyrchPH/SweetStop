@@ -2,6 +2,7 @@ import {
   BadgeDollarSign,
   BarChart3,
   Calculator,
+  ChevronDown,
   FileText,
   LogOut,
   Menu,
@@ -15,7 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 import BranchSwitcher from "./components/BranchSwitcher";
 import { SkeletonBlock } from "./components/SkeletonLoader";
 import { useAuth } from "./context/AuthContext";
-import AdminPage from "./pages/AdminPage";
+import AdminPage, { ADMIN_TABS } from "./pages/AdminPage";
 import CashLedgerPage from "./pages/CashLedgerPage";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
@@ -86,12 +87,18 @@ function App() {
     setActiveBranchId
   } = useAuth();
   const [activePageId, setActivePageId] = useState("dashboard");
+  const [activeAdminTabId, setActiveAdminTabId] = useState("branches");
+  const [isAdminNavOpen, setIsAdminNavOpen] = useState(true);
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
     () => window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true"
   );
   const visiblePages = useMemo(
     () => PAGES.filter((page) => !page.permission || hasPermission(page.permission)),
+    [hasPermission]
+  );
+  const visibleAdminTabs = useMemo(
+    () => ADMIN_TABS.filter((tab) => hasPermission(tab.permission)),
     [hasPermission]
   );
   const activePage = useMemo(
@@ -106,9 +113,36 @@ function App() {
     }
   }, [activePageId, visiblePages]);
 
+  useEffect(() => {
+    if (!visibleAdminTabs.some((tab) => tab.id === activeAdminTabId)) {
+      setActiveAdminTabId(visibleAdminTabs[0]?.id ?? "");
+    }
+  }, [activeAdminTabId, visibleAdminTabs]);
+
   function selectPage(pageId) {
     setActivePageId(pageId);
+    if (pageId === "admin") {
+      setIsAdminNavOpen(true);
+    }
     setIsNavOpen(false);
+  }
+
+  function selectAdminTab(tabId) {
+    setActivePageId("admin");
+    setActiveAdminTabId(tabId);
+    setIsAdminNavOpen(true);
+    setIsNavOpen(false);
+  }
+
+  function toggleAdminNav() {
+    if (activePageId !== "admin") {
+      setActivePageId("admin");
+      setIsAdminNavOpen(true);
+      setIsNavOpen(false);
+      return;
+    }
+
+    setIsAdminNavOpen((current) => !current);
   }
 
   function toggleSidebar() {
@@ -164,6 +198,48 @@ function App() {
           {visiblePages.map((page) => {
             const Icon = page.icon;
             const isActive = page.id === activePageId;
+            const isAdminPage = page.id === "admin" && visibleAdminTabs.length > 0;
+
+            if (isAdminPage) {
+              return (
+                <div className={`nav-group ${isAdminNavOpen ? "is-open" : ""}`} key={page.id}>
+                  <button
+                    aria-expanded={isAdminNavOpen}
+                    className={`nav-item has-children ${isActive ? "is-active" : ""}`}
+                    onClick={toggleAdminNav}
+                    title={isSidebarCollapsed ? page.label : undefined}
+                    type="button"
+                  >
+                    <Icon size={20} strokeWidth={2.2} />
+                    <span>
+                      <strong>{page.label}</strong>
+                      <small>{page.eyebrow}</small>
+                    </span>
+                    <ChevronDown className="nav-chevron" size={16} />
+                  </button>
+                  {isAdminNavOpen ? (
+                    <div className="admin-subnav" aria-label="Admin navigation">
+                      {visibleAdminTabs.map((tab) => {
+                        const TabIcon = tab.icon;
+                        const isTabActive = activePageId === "admin" && tab.id === activeAdminTabId;
+
+                        return (
+                          <button
+                            className={`admin-subnav-item ${isTabActive ? "is-active" : ""}`}
+                            key={tab.id}
+                            onClick={() => selectAdminTab(tab.id)}
+                            type="button"
+                          >
+                            <TabIcon size={15} strokeWidth={2.3} />
+                            <span>{tab.navLabel ?? tab.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            }
 
             return (
               <button
@@ -228,7 +304,11 @@ function App() {
 
         <main className="page-content">
           {activeBranch || activePageId === "admin" ? (
-            <ActivePage />
+            <ActivePage
+              {...(activePageId === "admin"
+                ? { activeTabId: activeAdminTabId, onTabChange: setActiveAdminTabId }
+                : {})}
+            />
           ) : (
             <section className="feature-panel">
               <span className="section-kicker">Branch required</span>

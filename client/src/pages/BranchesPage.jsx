@@ -1,4 +1,4 @@
-import { Building2, CheckCircle2, Plus } from "lucide-react";
+import { Building2, CheckCircle2, Pencil, Plus } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import ErrorDialog from "../components/ErrorDialog";
@@ -20,6 +20,8 @@ function BranchesPage() {
     status: "ACTIVE"
   });
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState(null);
   const [message, setMessage] = useState("");
   const [actionError, setActionError] = useState("");
   const load = useCallback(() => branchesApi.list(), []);
@@ -27,7 +29,9 @@ function BranchesPage() {
     cacheKey: "branches:list"
   });
   const branches = data ?? [];
-  const isEditing = Boolean(form.id);
+  const isExistingBranch = Boolean(form.id);
+  const isEditing = isExistingBranch && isEditMode;
+  const isCreating = !isExistingBranch;
 
   if (isLoading) {
     return <PageSkeleton rows={5} />;
@@ -38,7 +42,14 @@ function BranchesPage() {
     setForm((current) => ({ ...current, [name]: value }));
   }
 
-  function editBranch(branch) {
+  function toggleStatus() {
+    setForm((current) => ({
+      ...current,
+      status: current.status === "ACTIVE" ? "INACTIVE" : "ACTIVE"
+    }));
+  }
+
+  function fillBranchForm(branch) {
     setForm({
       id: branch.id,
       name: branch.name ?? "",
@@ -46,6 +57,12 @@ function BranchesPage() {
       timezone: branch.timezone ?? "Asia/Manila",
       status: branch.status ?? "ACTIVE"
     });
+  }
+
+  function viewBranch(branch) {
+    fillBranchForm(branch);
+    setSelectedBranch(branch);
+    setIsEditMode(false);
     setIsFormOpen(true);
   }
 
@@ -61,6 +78,8 @@ function BranchesPage() {
 
   function openCreateDialog() {
     resetForm();
+    setSelectedBranch(null);
+    setIsEditMode(true);
     setMessage("");
     setActionError("");
     setIsFormOpen(true);
@@ -68,7 +87,19 @@ function BranchesPage() {
 
   function closeFormDialog() {
     resetForm();
+    setSelectedBranch(null);
+    setIsEditMode(false);
     setIsFormOpen(false);
+  }
+
+  function cancelEditMode() {
+    if (selectedBranch) {
+      fillBranchForm(selectedBranch);
+      setIsEditMode(false);
+      return;
+    }
+
+    closeFormDialog();
   }
 
   async function saveBranch(event) {
@@ -93,6 +124,8 @@ function BranchesPage() {
       await loadBranches();
       await reload({ force: true });
       resetForm();
+      setSelectedBranch(null);
+      setIsEditMode(false);
       setIsFormOpen(false);
       setMessage(wasEditing ? "Branch updated." : "Branch created.");
     } catch (incomingError) {
@@ -138,7 +171,7 @@ function BranchesPage() {
         </div>
         <div className="data-list">
           {branches.map((branch) => (
-            <button className="data-row action-row" key={branch.id} onClick={() => editBranch(branch)} type="button">
+            <button className="data-row action-row" key={branch.id} onClick={() => viewBranch(branch)} type="button">
               <strong>{branch.name}</strong>
               <span>{branch.status}</span>
               <span>{branch.timezone}</span>
@@ -152,40 +185,93 @@ function BranchesPage() {
 
       <FormDialog
         icon={<CheckCircle2 size={22} />}
-        isOpen={isFormOpen}
-        kicker={isEditing ? "Edit" : "Create"}
-        onClose={closeFormDialog}
-        title={isEditing ? "Update branch" : "New branch"}
-      >
-        <form className="form-grid single-column" onSubmit={saveBranch}>
-          <label>
-            <span>Name</span>
-            <input name="name" onChange={updateForm} placeholder="e.g. Main Branch" required value={form.name} />
-          </label>
-          <label>
-            <span>Address</span>
-            <input name="address" onChange={updateForm} placeholder="Street, city, province" value={form.address} />
-          </label>
-          <label>
-            <span>Timezone</span>
-            <input name="timezone" onChange={updateForm} placeholder="Asia/Manila" required value={form.timezone} />
-          </label>
-          <label>
-            <span>Status</span>
-            <select name="status" onChange={updateForm} value={form.status}>
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="INACTIVE">INACTIVE</option>
-            </select>
-          </label>
-          <button className="primary-button full-width" type="submit">
-            Save branch
-          </button>
-          {isEditing ? (
-            <button className="soft-button full-width" onClick={closeFormDialog} type="button">
-              Cancel edit
+        headerAction={
+          !isEditMode && selectedBranch ? (
+            <button
+              aria-label="Edit branch"
+              className="icon-button dialog-edit"
+              onClick={() => setIsEditMode(true)}
+              type="button"
+            >
+              <Pencil size={18} />
             </button>
-          ) : null}
-        </form>
+          ) : null
+        }
+        isOpen={isFormOpen}
+        kicker={isCreating ? "Create" : isEditing ? "Edit" : "View"}
+        onClose={closeFormDialog}
+        title={isCreating ? "New branch" : isEditing ? "Update branch" : "Branch details"}
+      >
+        {!isEditMode && selectedBranch ? (
+          <div className="branch-view-panel">
+            <div className="branch-view-hero">
+              <span className="branch-view-icon">
+                <Building2 size={24} />
+              </span>
+              <div>
+                <strong>{selectedBranch.name}</strong>
+                <span>{selectedBranch.address || "No address recorded"}</span>
+              </div>
+            </div>
+            <dl className="branch-detail-list">
+              <div>
+                <dt>Status</dt>
+                <dd>{selectedBranch.status}</dd>
+              </div>
+              <div>
+                <dt>Timezone</dt>
+                <dd>{selectedBranch.timezone || "Asia/Manila"}</dd>
+              </div>
+              <div>
+                <dt>Last updated</dt>
+                <dd>{formatDateTime(selectedBranch.updated_at)}</dd>
+              </div>
+            </dl>
+          </div>
+        ) : (
+          <form className="form-grid single-column" onSubmit={saveBranch}>
+            <label>
+              <span>Name</span>
+              <input name="name" onChange={updateForm} placeholder="e.g. Main Branch" required value={form.name} />
+            </label>
+            <label>
+              <span>Address</span>
+              <input name="address" onChange={updateForm} placeholder="Street, city, province" value={form.address} />
+            </label>
+            <label>
+              <span>Timezone</span>
+              <input name="timezone" onChange={updateForm} placeholder="Asia/Manila" required value={form.timezone} />
+            </label>
+            <div className="status-switch-field">
+              <span>Status</span>
+              <button
+                aria-checked={form.status === "ACTIVE"}
+                className={`status-switch ${form.status === "ACTIVE" ? "is-active" : ""}`}
+                onClick={toggleStatus}
+                role="switch"
+                type="button"
+              >
+                <span className="status-switch-track" aria-hidden="true">
+                  <span className="status-switch-thumb" />
+                </span>
+                <span className="status-switch-copy">
+                  <strong>{form.status === "ACTIVE" ? "Active" : "Inactive"}</strong>
+                  <small>
+                    {form.status === "ACTIVE" ? "Visible and usable in POS" : "Hidden from daily operations"}
+                  </small>
+                </span>
+              </button>
+            </div>
+            <button className="primary-button full-width" type="submit">
+              Save branch
+            </button>
+            {isEditing || isCreating ? (
+              <button className="soft-button full-width" onClick={cancelEditMode} type="button">
+                {isEditing ? "Cancel edit" : "Cancel"}
+              </button>
+            ) : null}
+          </form>
+        )}
       </FormDialog>
     </section>
   );

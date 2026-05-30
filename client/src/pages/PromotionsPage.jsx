@@ -3,6 +3,7 @@ import { useCallback, useState } from "react";
 
 import ErrorDialog from "../components/ErrorDialog";
 import FormDialog from "../components/FormDialog";
+import FormSelect from "../components/FormSelect";
 import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { invalidateApiResourcePrefix, useApiResource } from "../hooks/useApiResource";
@@ -238,13 +239,16 @@ function PromotionsPage() {
             <span>Description</span>
             <textarea name="description" onChange={updateForm} placeholder="Explain when this discount applies" value={form.description} />
           </label>
-          <label>
-            <span>Discount type</span>
-            <select name="discount_type" onChange={updateForm} value={form.discount_type}>
-              <option value="PERCENT">Percent</option>
-              <option value="FIXED">Fixed amount</option>
-            </select>
-          </label>
+          <FormSelect
+            label="Discount type"
+            name="discount_type"
+            onChange={updateForm}
+            options={[
+              { value: "PERCENT", label: "Percent", description: "Take a percentage off the subtotal" },
+              { value: "FIXED", label: "Fixed amount", description: "Subtract a peso amount from the order" }
+            ]}
+            value={form.discount_type}
+          />
           <label>
             <span>Discount value</span>
             <input
@@ -278,13 +282,16 @@ function PromotionsPage() {
             <span>Ends at</span>
             <input name="ends_at" onChange={updateForm} type="datetime-local" value={form.ends_at} />
           </label>
-          <label>
-            <span>Status</span>
-            <select name="status" onChange={updateForm} value={form.status}>
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="INACTIVE">INACTIVE</option>
-            </select>
-          </label>
+          <FormSelect
+            label="Status"
+            name="status"
+            onChange={updateForm}
+            options={[
+              { value: "ACTIVE", label: "ACTIVE", description: "Available when schedule rules match" },
+              { value: "INACTIVE", label: "INACTIVE", description: "Disabled until reactivated" }
+            ]}
+            value={form.status}
+          />
           <button className="primary-button full-width" type="submit">
             <BadgePercent size={18} />
             Save promotion

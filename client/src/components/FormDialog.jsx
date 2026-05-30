@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
 import { useEffect, useId } from "react";
 
-function FormDialog({ children, isOpen, kicker = "Form", onClose, title, width = "default" }) {
+function FormDialog({ children, headerAction = null, isOpen, kicker = "Form", onClose, title, width = "default" }) {
   const titleId = useId();
 
   useEffect(() => {
@@ -32,9 +32,12 @@ function FormDialog({ children, isOpen, kicker = "Form", onClose, title, width =
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
       >
-        <button aria-label="Close form dialog" className="icon-button dialog-close" onClick={onClose} type="button">
-          <X size={18} />
-        </button>
+        <div className="dialog-actions">
+          {headerAction}
+          <button aria-label="Close form dialog" className="icon-button dialog-close" onClick={onClose} type="button">
+            <X size={18} />
+          </button>
+        </div>
         <div className="form-dialog-header">
           <div>
             <span className="section-kicker">{kicker}</span>

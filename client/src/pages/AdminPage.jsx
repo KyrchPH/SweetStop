@@ -14,10 +14,11 @@ import CatalogPage from "./CatalogPage";
 import PromotionsPage from "./PromotionsPage";
 import ReportsPage from "./ReportsPage";
 
-const ADMIN_TABS = [
+export const ADMIN_TABS = [
   {
     id: "branches",
     label: "Manage Branches",
+    navLabel: "Branches",
     detail: "Create locations and update branch status",
     icon: Building2,
     permission: "account.manage",
@@ -26,6 +27,7 @@ const ADMIN_TABS = [
   {
     id: "accounts",
     label: "Manage Accounts",
+    navLabel: "Accounts",
     detail: "Add staff, reset passwords, and assign roles",
     icon: ShieldCheck,
     permission: "account.manage",
@@ -34,6 +36,7 @@ const ADMIN_TABS = [
   {
     id: "products",
     label: "Manage Products",
+    navLabel: "Products",
     detail: "Maintain catalog, variants, prices, and stock",
     icon: Boxes,
     permission: ["product.create", "product.update", "product.branch_availability.update", "inventory.adjust"],
@@ -42,6 +45,7 @@ const ADMIN_TABS = [
   {
     id: "analytics",
     label: "Analytics and Sales",
+    navLabel: "Analytics",
     detail: "Generate reports and review sales totals",
     icon: BarChart3,
     permission: ["report.daily.view", "report.daily.generate"],
@@ -50,6 +54,7 @@ const ADMIN_TABS = [
   {
     id: "promotions",
     label: "Manage Promotions",
+    navLabel: "Promotions",
     detail: "Create active discounts for POS receipts",
     icon: BadgePercent,
     permission: "promotion.manage",
@@ -57,21 +62,23 @@ const ADMIN_TABS = [
   }
 ];
 
-function AdminPage() {
-  const { activeBranch, hasPermission } = useAuth();
+function AdminPage({ activeTabId, onTabChange }) {
+  const { hasPermission } = useAuth();
   const visibleTabs = useMemo(
     () => ADMIN_TABS.filter((tab) => hasPermission(tab.permission)),
     [hasPermission]
   );
-  const [activeTabId, setActiveTabId] = useState(visibleTabs[0]?.id ?? "");
-  const activeTab = visibleTabs.find((tab) => tab.id === activeTabId) ?? visibleTabs[0] ?? null;
+  const [internalActiveTabId, setInternalActiveTabId] = useState(visibleTabs[0]?.id ?? "");
+  const selectedTabId = activeTabId ?? internalActiveTabId;
+  const setSelectedTabId = onTabChange ?? setInternalActiveTabId;
+  const activeTab = visibleTabs.find((tab) => tab.id === selectedTabId) ?? visibleTabs[0] ?? null;
   const ActiveComponent = activeTab?.component;
 
   useEffect(() => {
-    if (!visibleTabs.some((tab) => tab.id === activeTabId)) {
-      setActiveTabId(visibleTabs[0]?.id ?? "");
+    if (!visibleTabs.some((tab) => tab.id === selectedTabId)) {
+      setSelectedTabId(visibleTabs[0]?.id ?? "");
     }
-  }, [activeTabId, visibleTabs]);
+  }, [selectedTabId, setSelectedTabId, visibleTabs]);
 
   if (visibleTabs.length === 0) {
     return (
@@ -85,35 +92,6 @@ function AdminPage() {
 
   return (
     <section className="page-grid admin-grid">
-      <div className="admin-hero">
-        <span className="section-kicker">Admin center</span>
-        <h2>{activeBranch ? activeBranch.name : "SweetStop"} operations</h2>
-        <p>
-          Manage locations, staff access, products, sales analytics, and active POS discounts from
-          one workspace.
-        </p>
-      </div>
-
-      <div className="admin-tab-grid">
-        {visibleTabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = tab.id === activeTab?.id;
-
-          return (
-            <button
-              className={`admin-tab-card ${isActive ? "is-active" : ""}`}
-              key={tab.id}
-              onClick={() => setActiveTabId(tab.id)}
-              type="button"
-            >
-              <Icon size={22} />
-              <strong>{tab.label}</strong>
-              <span>{tab.detail}</span>
-            </button>
-          );
-        })}
-      </div>
-
       <div className="admin-tab-content">
         {ActiveComponent ? <ActiveComponent /> : null}
       </div>

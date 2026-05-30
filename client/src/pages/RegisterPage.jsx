@@ -2,6 +2,7 @@ import { BadgePercent, Minus, Plus, ReceiptText, RefreshCw, Search, ShoppingBag,
 import { useCallback, useMemo, useState } from "react";
 
 import ErrorDialog from "../components/ErrorDialog";
+import LottieEmptyState from "../components/LottieEmptyState";
 import ReceiptPreview from "../components/ReceiptPreview";
 import { RegisterSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
@@ -272,7 +273,20 @@ function RegisterPage() {
               </button>
             ))}
             {visibleVariants.length === 0 && !isLoading ? (
-              <p className="empty-state">No sellable variants found.</p>
+              <LottieEmptyState
+                message={
+                  searchTerm.trim()
+                    ? "Try another search term or refresh the menu."
+                    : "Add sellable products to this branch to start taking orders."
+                }
+                title={
+                  searchTerm.trim()
+                    ? "No matching desserts"
+                    : category === "All"
+                      ? "No desserts available"
+                      : `No ${category.toLowerCase()} available`
+                }
+              />
             ) : null}
           </div>
         ) : (

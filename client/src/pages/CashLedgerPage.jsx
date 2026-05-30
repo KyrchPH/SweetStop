@@ -2,6 +2,8 @@ import { ArrowDownLeft, ArrowUpRight, CheckCircle2, Coins, RefreshCw, WalletCard
 import { useCallback, useState } from "react";
 
 import ErrorDialog from "../components/ErrorDialog";
+import FormSelect from "../components/FormSelect";
+import LargeMoneyAmount from "../components/LargeMoneyAmount";
 import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { invalidateApiResourcePrefix, useApiResource } from "../hooks/useApiResource";
@@ -55,6 +57,17 @@ function CashLedgerPage() {
   const expectedCash = Number(data?.shift?.opening_cash ?? 0) + cashIn - cashOut;
   const movementTone = form.movement_type === "IN" ? "in" : "out";
   const movementLabel = form.movement_type === "IN" ? "Cash in" : "Cash out";
+  const categoryOptions = form.movement_type === "IN"
+    ? [
+        { value: "Owner deposit", label: "Owner deposit" },
+        { value: "Cash correction", label: "Cash correction" },
+        { value: "Drawer top-up", label: "Drawer top-up" }
+      ]
+    : [
+        { value: "Supplier payment", label: "Supplier payment" },
+        { value: "Petty cash", label: "Petty cash" },
+        { value: "Cash correction", label: "Cash correction" }
+      ];
 
   function updateForm(event) {
     const { name, value } = event.target;
@@ -65,6 +78,11 @@ function CashLedgerPage() {
     event.preventDefault();
     setMessage("");
     setActionError("");
+
+    if (!form.category) {
+      setActionError("Select a cash movement category before posting.");
+      return;
+    }
 
     try {
       await cashApi.createMovement({
@@ -101,7 +119,7 @@ function CashLedgerPage() {
         <div className="movement-toggle cash-segmented-control">
           <button
             className={form.movement_type === "IN" ? "is-active" : ""}
-            onClick={() => setForm((current) => ({ ...current, movement_type: "IN" }))}
+            onClick={() => setForm((current) => ({ ...current, movement_type: "IN", category: "" }))}
             type="button"
           >
             <ArrowUpRight size={18} />
@@ -109,7 +127,7 @@ function CashLedgerPage() {
           </button>
           <button
             className={form.movement_type === "OUT" ? "is-active" : ""}
-            onClick={() => setForm((current) => ({ ...current, movement_type: "OUT" }))}
+            onClick={() => setForm((current) => ({ ...current, movement_type: "OUT", category: "" }))}
             type="button"
           >
             <ArrowDownLeft size={18} />
@@ -133,27 +151,15 @@ function CashLedgerPage() {
               />
             </div>
           </label>
-          <label>
-            <span>Category</span>
-            <input
-              list={form.movement_type === "IN" ? "cash-in-categories" : "cash-out-categories"}
-              name="category"
-              onChange={updateForm}
-              placeholder={form.movement_type === "IN" ? "Owner deposit" : "Supplier payment"}
-              required
-              value={form.category}
-            />
-            <datalist id="cash-in-categories">
-              <option value="Owner deposit" />
-              <option value="Cash correction" />
-              <option value="Drawer top-up" />
-            </datalist>
-            <datalist id="cash-out-categories">
-              <option value="Supplier payment" />
-              <option value="Petty cash" />
-              <option value="Cash correction" />
-            </datalist>
-          </label>
+          <FormSelect
+            label="Category"
+            name="category"
+            onChange={updateForm}
+            options={categoryOptions}
+            placeholder={form.movement_type === "IN" ? "Select cash-in category" : "Select cash-out category"}
+            required
+            value={form.category}
+          />
           <label className="span-all">
             <span>Reason</span>
             <input
@@ -182,7 +188,11 @@ function CashLedgerPage() {
             <WalletCards size={22} />
           </span>
         </div>
-        <div className="drawer-total">{formatMoney(expectedCash)}</div>
+        <div className="cash-position-total">
+          <strong>
+            <LargeMoneyAmount value={expectedCash} />
+          </strong>
+        </div>
         <div className="cash-summary-grid">
           <div className="cash-summary-item is-in">
             <span>

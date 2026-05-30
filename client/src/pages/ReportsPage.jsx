@@ -2,6 +2,7 @@ import { Download, FileText, RefreshCw } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import ErrorDialog from "../components/ErrorDialog";
+import LargeMoneyAmount from "../components/LargeMoneyAmount";
 import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { useApiResource } from "../hooks/useApiResource";
@@ -167,7 +168,9 @@ function ReportsPage() {
 
       <article className="feature-panel report-hero">
         <span className="section-kicker">Net sales</span>
-        <strong>{formatMoney(selectedReport?.net_sales)}</strong>
+        <strong>
+          <LargeMoneyAmount value={selectedReport?.net_sales} />
+        </strong>
         <div className="report-stats">
           <span>{selectedReport?.receipts_count ?? 0} receipts</span>
           <span>{formatQuantity(selectedReport?.items_sold_qty)} items sold</span>

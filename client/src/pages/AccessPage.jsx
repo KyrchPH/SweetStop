@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import ErrorDialog from "../components/ErrorDialog";
 import FormDialog from "../components/FormDialog";
+import FormSelect from "../components/FormSelect";
 import PasswordField from "../components/PasswordField";
 import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
@@ -184,6 +185,11 @@ function AccessPage() {
       status: "ACTIVE"
     };
 
+    if (!form.access_id) {
+      setActionError("Select a role before creating the account.");
+      return;
+    }
+
     try {
       await accessApi.createAccount(payload);
       resetAccountForm();
@@ -212,6 +218,11 @@ function AccessPage() {
     event.preventDefault();
     setMessage("");
     setActionError("");
+
+    if (!branchRoleForm.branch_id || !branchRoleForm.access_id) {
+      setActionError("Select a branch and role before saving.");
+      return;
+    }
 
     try {
       await accessApi.upsertBranchRole(branchRoleForm.account_id, {
@@ -391,17 +402,15 @@ function AccessPage() {
             required
             value={form.password}
           />
-          <label>
-            <span>Role</span>
-            <select name="access_id" onChange={updateForm} required value={form.access_id}>
-              <option value="">Select role</option>
-              {roles.map((role) => (
-                <option key={role.id} value={role.id}>
-                  {role.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <FormSelect
+            label="Role"
+            name="access_id"
+            onChange={updateForm}
+            options={roles.map((role) => ({ value: role.id, label: role.name }))}
+            placeholder="Select role"
+            required
+            value={form.access_id}
+          />
           <button className="primary-button full-width" type="submit">
             <Plus size={18} />
             Account
@@ -424,28 +433,28 @@ function AccessPage() {
           </div>
         ) : null}
         <form className="form-grid single-column" onSubmit={saveBranchRole}>
-          <label>
-            <span>Branch</span>
-            <select name="branch_id" onChange={updateBranchRoleForm} required value={branchRoleForm.branch_id}>
-              <option value="">Select branch</option>
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Role</span>
-            <select name="access_id" onChange={updateBranchRoleForm} required value={branchRoleForm.access_id}>
-              <option value="">Select role</option>
-              {roles.map((role) => (
-                <option key={role.id} value={role.id}>
-                  {role.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <FormSelect
+            label="Branch"
+            name="branch_id"
+            onChange={updateBranchRoleForm}
+            options={branches.map((branch) => ({
+              value: branch.id,
+              label: branch.name,
+              description: branch.address || branch.timezone || "SweetStop branch"
+            }))}
+            placeholder="Select branch"
+            required
+            value={branchRoleForm.branch_id}
+          />
+          <FormSelect
+            label="Role"
+            name="access_id"
+            onChange={updateBranchRoleForm}
+            options={roles.map((role) => ({ value: role.id, label: role.name }))}
+            placeholder="Select role"
+            required
+            value={branchRoleForm.access_id}
+          />
           <label className="check-row">
             <input
               checked={branchRoleForm.is_primary}

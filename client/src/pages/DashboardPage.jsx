@@ -2,6 +2,7 @@ import { ArrowDownLeft, ArrowUpRight, Clock3, ReceiptText, TrendingUp } from "lu
 import { useCallback, useState } from "react";
 
 import ErrorDialog from "../components/ErrorDialog";
+import LargeMoneyAmount from "../components/LargeMoneyAmount";
 import { DashboardSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { invalidateApiResourcePrefix, useApiResource } from "../hooks/useApiResource";
@@ -161,7 +162,9 @@ function DashboardPage() {
         </div>
         <div className="shift-total">
           <span>Expected drawer</span>
-          <strong>{formatMoney(expectedCash)}</strong>
+          <strong>
+            <LargeMoneyAmount value={expectedCash} />
+          </strong>
         </div>
         <div className="cash-flow-row">
           <span>

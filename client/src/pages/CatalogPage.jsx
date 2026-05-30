@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import ErrorDialog from "../components/ErrorDialog";
 import FormDialog from "../components/FormDialog";
+import FormSelect from "../components/FormSelect";
 import { PageSkeleton } from "../components/SkeletonLoader";
 import { useAuth } from "../context/AuthContext";
 import { invalidateApiResourcePrefix, useApiResource } from "../hooks/useApiResource";
@@ -166,6 +167,11 @@ function CatalogPage() {
       return;
     }
 
+    if (!variantForm.product_id) {
+      setActionError("Select a product before saving the variant.");
+      return;
+    }
+
     const payload = {
       name: variantForm.name,
       sku: variantForm.sku || null,
@@ -199,6 +205,11 @@ function CatalogPage() {
     event.preventDefault();
     setMessage("");
     setActionError("");
+
+    if (!configForm.variant_id) {
+      setActionError("Select a variant before saving branch rules.");
+      return;
+    }
 
     try {
       await catalogApi.updateBranchVariantConfig(activeBranchId, configForm.variant_id, {
@@ -371,17 +382,19 @@ function CatalogPage() {
         title={variantForm.variant_id ? "Update variant" : "Add variant"}
       >
         <form className="form-grid single-column" onSubmit={createVariant}>
-          <label>
-            <span>Product</span>
-            <select name="product_id" onChange={updateVariantForm} required value={variantForm.product_id}>
-              <option value="">Select product</option>
-              {productRows.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <FormSelect
+            label="Product"
+            name="product_id"
+            onChange={updateVariantForm}
+            options={productRows.map((product) => ({
+              value: product.id,
+              label: product.name,
+              description: product.category || "Product"
+            }))}
+            placeholder="Select product"
+            required
+            value={variantForm.product_id}
+          />
           <label>
             <span>Variant name</span>
             <input name="name" onChange={updateVariantForm} placeholder="e.g. Slice" required value={variantForm.name} />
@@ -425,17 +438,19 @@ function CatalogPage() {
         <span className="section-kicker">Availability</span>
         <h2>Branch controls</h2>
         <form className="form-grid single-column" onSubmit={updateBranchVariant}>
-          <label>
-            <span>Variant</span>
-            <select name="variant_id" onChange={updateConfigForm} required value={configForm.variant_id}>
-              <option value="">Select variant</option>
-              {variantRows.map((variant) => (
-                <option key={variant.variant_id} value={variant.variant_id}>
-                  {variant.product_name} / {variant.variant_name} / {formatMoney(variant.price)}
-                </option>
-              ))}
-            </select>
-          </label>
+          <FormSelect
+            label="Variant"
+            name="variant_id"
+            onChange={updateConfigForm}
+            options={variantRows.map((variant) => ({
+              value: variant.variant_id,
+              label: `${variant.product_name} / ${variant.variant_name}`,
+              description: `${variant.category} / ${formatMoney(variant.price)}`
+            }))}
+            placeholder="Select variant"
+            required
+            value={configForm.variant_id}
+          />
           <label>
             <span>Price</span>
             <input name="price" onChange={updateConfigForm} required type="number" value={configForm.price} />
